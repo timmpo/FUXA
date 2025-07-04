@@ -45,7 +45,7 @@ function scheduleJobs(schedObj) {
         return;
     }
 
-    const { tagId, periods } = schedObj;
+    const { tagId, periods, onValue, offValue } = schedObj;
 
     periods.forEach(period => {
         const { dayOfWeek, startTime, endTime } = period;
@@ -53,14 +53,14 @@ function scheduleJobs(schedObj) {
         const [startHour, startMinute] = startTime.split(':');
         const startCron = `${startMinute} ${startHour} * * ${dayOfWeek}`;
         const startJob = schedule.scheduleJob(startCron, async () => {
-            console.log(`Started ON period for ${tagId} at ${moment().format('YYYY-MM-DD HH:mm:ss')}`);
+            console.log(`Started ON period for ${tagId} at ${moment().format('YYYY-MM-DD HH:mm:ss')} with value ${onValue}`);
             try {
-                const success = await runtime.devices.setTagValue(tagId, 'on');
+                const success = await runtime.devices.setTagValue(tagId, onValue);
                 if (!success) {
-                    console.warn(`${tagId} could not be set to ON`);
+                    console.warn(`${tagId} could not be set to ${onValue}`);
                 }
             } catch (err) {
-                console.error(`Error setting ${tagId} to ON:`, err);
+                console.error(`Error setting ${tagId} to ${onValue}:`, err);
             }
         });
         jobs.push({ name: `${tagId}-start-${dayOfWeek}`, job: startJob });
@@ -68,14 +68,14 @@ function scheduleJobs(schedObj) {
         const [endHour, endMinute] = endTime.split(':');
         const endCron = `${endMinute} ${endHour} * * ${dayOfWeek}`;
         const endJob = schedule.scheduleJob(endCron, async () => {
-            console.log(`Ended OFF period for ${tagId} at ${moment().format('YYYY-MM-DD HH:mm:ss')}`);
+            console.log(`Ended OFF period for ${tagId} at ${moment().format('YYYY-MM-DD HH:mm:ss')} with value ${offValue}`);
             try {
-                const success = await runtime.devices.setTagValue(tagId, 'off');
+                const success = await runtime.devices.setTagValue(tagId, offValue);
                 if (!success) {
-                    console.warn(`${tagId} could not be set to OFF`);
+                    console.warn(`${tagId} could not be set to ${offValue}`);
                 }
             } catch (err) {
-                console.error(`Error setting ${tagId} to OFF:`, err);
+                console.error(`Error setting ${tagId} to ${offValue}:`, err);
             }
         });
         jobs.push({ name: `${tagId}-end-${dayOfWeek}`, job: endJob });
@@ -90,7 +90,7 @@ async function applyCurrentStates() {
 
     const now = moment();
     for (const schedule of schedules) {
-        const { tagId, periods } = schedule;
+        const { tagId, periods, onValue, offValue } = schedule;
         const isOn = periods.some(p => {
             const today = now.day();
             if (parseInt(p.dayOfWeek) !== today) return false;
@@ -103,7 +103,7 @@ async function applyCurrentStates() {
         });
 
         try {
-            const value = isOn ? 'on' : 'off';
+            const value = isOn ? onValue : offValue;
             const success = await runtime.devices.setTagValue(tagId, value);
             if (success) {
                 console.log(`Set ${tagId} to ${value} based on current time`);
@@ -129,20 +129,20 @@ function createApp() {
 
     // POST - create schedule
     commandApp.post('/api/schedules', async (req, res) => {
-        const { tagId, name, periods } = req.body;
+        const { tagId, name, periods, onValue, offValue, timeFormat } = req.body;
 
-        if (!tagId || !Array.isArray(periods)) {
-            return res.status(400).json({ error: 'tagId and periods are required' });
+        if (!tagId || !Array.isArray(periods) || !onValue || !offValue || !timeFormat) {
+            return res.status(400).json({ error: 'tagId, periods, onValue, offValue, and timeFormat are required' });
         }
 
         jobs = jobs.filter(job => !job.name.startsWith(tagId));
         schedules = schedules.filter(sch => sch.tagId !== tagId);
 
-        const newSchedule = { tagId, name: name || '', periods };
+        const newSchedule = { tagId, name: name || '', periods, onValue, offValue, timeFormat };
         schedules.push(newSchedule);
         scheduleJobs(newSchedule);
         await saveSchedules();
-        await applyCurrentStates(); // 🆕 direkt efter nytt schema
+        await applyCurrentStates(); // Apply immediately after creating new schedule
 
         res.json({ message: 'Schedule created', schedule: newSchedule });
     });
@@ -150,20 +150,20 @@ function createApp() {
     // PUT - update schedule
     commandApp.put('/api/schedules/:tagId', async (req, res) => {
         const tagId = req.params.tagId;
-        const { name, periods } = req.body;
+        const { name, periods, onValue, offValue, timeFormat } = req.body;
 
-        if (!Array.isArray(periods)) {
-            return res.status(400).json({ error: 'Invalid periods format' });
+        if (!Array.isArray(periods) || !onValue || !offValue || !timeFormat) {
+            return res.status(400).json({ error: 'Invalid periods, onValue, offValue, or timeFormat format' });
         }
 
         jobs = jobs.filter(job => !job.name.startsWith(tagId));
         schedules = schedules.filter(s => s.tagId !== tagId);
 
-        const updatedSchedule = { tagId, name: name || '', periods };
+        const updatedSchedule = { tagId, name: name || '', periods, onValue, offValue, timeFormat };
         schedules.push(updatedSchedule);
         scheduleJobs(updatedSchedule);
         await saveSchedules();
-        await applyCurrentStates(); // 🆕 direkt efter uppdatering
+        await applyCurrentStates(); // Apply immediately after updating
 
         res.json({ message: 'Schedule updated', schedule: updatedSchedule });
     });
@@ -207,17 +207,17 @@ function createApp() {
 }
 
 module.exports = {
-init: async function (_runtime, _secureFnc, _checkGroupsFnc) {
-    runtime = _runtime;
-    secureFnc = _secureFnc;
-    checkGroupsFnc = _checkGroupsFnc;
+    init: async function (_runtime, _secureFnc, _checkGroupsFnc) {
+        runtime = _runtime;
+        secureFnc = _secureFnc;
+        checkGroupsFnc = _checkGroupsFnc;
 
-    await loadSchedules();
+        await loadSchedules();
 
-    // Whait some time before loading tags
-    setTimeout(async () => {
-        await applyCurrentStates();
-    }, 5000); // ms delay
-	},
+        // Wait some time before loading tags
+        setTimeout(async () => {
+            await applyCurrentStates();
+        }, 5000); // ms delay
+    },
     app: createApp
 };

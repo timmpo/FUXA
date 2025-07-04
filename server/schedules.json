@@ -1,0 +1,16 @@
+[
+  {
+    "tagId": "t_d052fb9d-26984470",
+    "name": "dd",
+    "periods": [
+      {
+        "dayOfWeek": "5",
+        "startTime": "08:00",
+        "endTime": "22:00"
+      }
+    ],
+    "onValue": "on",
+    "offValue": "off",
+    "timeFormat": "24h"
+  }
+]

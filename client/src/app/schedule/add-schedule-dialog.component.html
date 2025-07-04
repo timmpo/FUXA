@@ -1,0 +1,98 @@
+<mat-dialog-content>
+    <h2>{{ 'schedule-add-title' | translate }}</h2>
+
+    <form [formGroup]="formGroup">
+        <!-- Name -->
+        <mat-form-field style="width: 100%;">
+            <mat-label>{{ 'schedule-name-label' | translate }}</mat-label>
+            <input
+                matInput
+                formControlName="name"
+                placeholder="{{ 'schedule-name-placeholder' | translate }}"
+            />
+            <mat-error *ngIf="formGroup.get('name')?.hasError('required')">
+                {{ 'schedule-name-required' | translate }}
+            </mat-error>
+        </mat-form-field>
+
+        <!-- Tag ID -->
+        <mat-form-field style="width: 100%;">
+            <mat-label>{{ 'schedule-tagId-label' | translate }}</mat-label>
+            <input
+                matInput
+                formControlName="tagId"
+                placeholder="{{ 'schedule-tagId-placeholder' | translate }}"
+            />
+            <mat-error *ngIf="formGroup.get('tagId')?.hasError('required')">
+                {{ 'schedule-tagId-required' | translate }}
+            </mat-error>
+            <mat-error *ngIf="formGroup.get('tagId')?.hasError('pattern')">
+                {{ 'schedule-tagId-pattern' | translate }}
+            </mat-error>
+        </mat-form-field>
+
+        <!-- Select from list -->
+        <button mat-button color="accent" (click)="openTagSelection()">
+            {{ 'schedule-select-from-list' | translate }}
+        </button>
+
+        <!-- On Value -->
+        <mat-form-field style="width: 100%;">
+            <mat-label>{{ 'schedule-onValue-label' | translate }}</mat-label>
+            <input
+                matInput
+                formControlName="onValue"
+                placeholder="{{ 'schedule-onValue-placeholder' | translate }}"
+            />
+            <mat-error *ngIf="formGroup.get('onValue')?.hasError('required')">
+                {{ 'schedule-onValue-required' | translate }}
+            </mat-error>
+            <mat-error *ngIf="formGroup.get('onValue')?.hasError('minlength')">
+                {{ 'schedule-onValue-minlength' | translate }}
+            </mat-error>
+        </mat-form-field>
+
+        <!-- Off Value -->
+        <mat-form-field style="width: 100%;">
+            <mat-label>{{ 'schedule-offValue-label' | translate }}</mat-label>
+            <input
+                matInput
+                formControlName="offValue"
+                placeholder="{{ 'schedule-offValue-placeholder' | translate }}"
+            />
+            <mat-error *ngIf="formGroup.get('offValue')?.hasError('required')">
+                {{ 'schedule-offValue-required' | translate }}
+            </mat-error>
+            <mat-error *ngIf="formGroup.get('offValue')?.hasError('minlength')">
+                {{ 'schedule-offValue-minlength' | translate }}
+            </mat-error>
+        </mat-form-field>
+
+        <!-- Time Format -->
+        <mat-form-field style="width: 100%;">
+            <mat-label>{{ 'schedule-timeFormat-label' | translate }}</mat-label>
+            <mat-select formControlName="timeFormat">
+                <mat-option *ngFor="let format of timeFormats" [value]="format.value">
+                    {{ format.name }}
+                </mat-option>
+            </mat-select>
+            <mat-error *ngIf="formGroup.get('timeFormat')?.hasError('required')">
+                {{ 'schedule-timeFormat-required' | translate }}
+            </mat-error>
+        </mat-form-field>
+    </form>
+</mat-dialog-content>
+
+<mat-dialog-actions align="end">
+    <button mat-button (click)="onCancel()">
+        {{ 'schedule-cancel' | translate }}
+    </button>
+    <button
+        mat-button
+        color="primary"
+        (click)="onSave()"
+        [disabled]="!formGroup.valid"
+    >
+        {{ 'schedule-save' | translate }}
+    </button>
+</mat-dialog-actions>

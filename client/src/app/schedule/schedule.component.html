@@ -45,7 +45,7 @@
                 <button
                     mat-icon-button
                     color="primary"
-                    (click)="openScheduleDialog()"
+                    (click)="openAddScheduleDialog()"
                     [matTooltip]="'schedule-tooltip-add' | translate"
                 >
                     <mat-icon>add</mat-icon>
@@ -84,7 +84,7 @@
                 style="color: var(--formInputColor);"
             >
                 <span *ngFor="let period of schedule.periods; let last = last">
-                    {{ getDayName(period.dayOfWeek) }} {{ period.startTime }}–{{ period.endTime }}{{ last ? '' : ', ' }}
+                    {{ getDayName(period.dayOfWeek) }} {{ formatTime(period.startTime, schedule.timeFormat) }}–{{ formatTime(period.endTime, schedule.timeFormat) }}{{ last ? '' : ', ' }}
                 </span>
             </td>
         </ng-container>
@@ -108,4 +108,3 @@
         <tr mat-row *matRowDef="let row; columns: displayedColumns;"></tr>
     </table>
 </div>
-

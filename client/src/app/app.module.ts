@@ -223,6 +223,7 @@ import { DeviceAdapterService } from './device-adapter/device-adapter.service';
 
 import { ScheduleComponent } from './schedule/schedule.component';
 import { ScheduleDialogComponent } from './schedule/schedule-dialog.component';
+import { AddScheduleDialogComponent } from './schedule/add-schedule-dialog.component';
 
 export function createTranslateLoader(http: HttpClient) {
     return new TranslateHttpLoader(http, './assets/i18n/', '.json');
@@ -238,6 +239,7 @@ export const myCustomTooltipDefaults: MatTooltipDefaultOptions = {
     declarations: [
 		ScheduleComponent,
 		ScheduleDialogComponent,
+		AddScheduleDialogComponent,
         HomeComponent,
         EditorComponent,
         HeaderComponent,

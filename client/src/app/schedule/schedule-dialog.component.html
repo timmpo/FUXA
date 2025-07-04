@@ -1,43 +1,13 @@
 <mat-dialog-content>
-    <h2>
-        {{ data.tagId ? ('schedule-edit-title' | translate) : ('schedule-add-title' | translate) }}
-    </h2>
+    <h2>{{ 'schedule-edit-title' | translate }}</h2>
+
+    <!-- Display non-editable fields -->
+    <div style="margin-bottom: 20px;">
+        <div><strong>{{ 'schedule-name-label' | translate }}:</strong> {{ data.name }}</div>
+        <div><strong>{{ 'schedule-tagId-label' | translate }}:</strong> {{ data.tagId }}</div>
+    </div>
 
     <form [formGroup]="formGroup">
-        <!-- Name -->
-        <mat-form-field style="width: 100%;">
-            <mat-label>{{ 'schedule-name-label' | translate }}</mat-label>
-            <input
-                matInput
-                formControlName="name"
-                placeholder="{{ 'schedule-name-placeholder' | translate }}"
-            />
-            <mat-error *ngIf="formGroup.get('name')?.hasError('required')">
-                {{ 'schedule-name-required' | translate }}
-            </mat-error>
-        </mat-form-field>
-
-        <!-- Tag ID -->
-        <mat-form-field style="width: 100%;">
-            <mat-label>{{ 'schedule-tagId-label' | translate }}</mat-label>
-            <input
-                matInput
-                formControlName="tagId"
-                placeholder="{{ 'schedule-tagId-placeholder' | translate }}"
-            />
-            <mat-error *ngIf="formGroup.get('tagId')?.hasError('required')">
-                {{ 'schedule-tagId-required' | translate }}
-            </mat-error>
-            <mat-error *ngIf="formGroup.get('tagId')?.hasError('pattern')">
-                {{ 'schedule-tagId-pattern' | translate }}
-            </mat-error>
-        </mat-form-field>
-
-        <!-- Select from list -->
-        <button mat-button color="accent" (click)="openTagSelection()">
-            {{ 'schedule-select-from-list' | translate }}
-        </button>
-
         <!-- Periods -->
         <div formArrayName="periods">
             <div
@@ -56,12 +26,34 @@
 
                 <mat-form-field style="width: 100px; margin-right: 10px;">
                     <mat-label>{{ 'schedule-startTime-label' | translate }}</mat-label>
-                    <input matInput type="time" formControlName="startTime" />
+                    <input
+                        matInput
+                        [value]="formatTime(period.get('startTime').value)"
+                        (change)="period.get('startTime').setValue(parseTime($event.target.value))"
+                        placeholder="{{ data.timeFormat === '12h' ? 'hh:mm AM/PM' : 'HH:mm' }}"
+                    />
+                    <mat-error *ngIf="period.get('startTime')?.hasError('required')">
+                        {{ 'schedule-startTime-required' | translate }}
+                    </mat-error>
+                    <mat-error *ngIf="period.get('startTime')?.hasError('pattern')">
+                        {{ 'schedule-time-pattern' | translate }}
+                    </mat-error>
                 </mat-form-field>
 
                 <mat-form-field style="width: 100px; margin-right: 10px;">
                     <mat-label>{{ 'schedule-endTime-label' | translate }}</mat-label>
-                    <input matInput type="time" formControlName="endTime" />
+                    <input
+                        matInput
+                        [value]="formatTime(period.get('endTime').value)"
+                        (change)="period.get('endTime').setValue(parseTime($event.target.value))"
+                        placeholder="{{ data.timeFormat === '12h' ? 'hh:mm AM/PM' : 'HH:mm' }}"
+                    />
+                    <mat-error *ngIf="period.get('endTime')?.hasError('required')">
+                        {{ 'schedule-endTime-required' | translate }}
+                    </mat-error>
+                    <mat-error *ngIf="period.get('endTime')?.hasError('pattern')">
+                        {{ 'schedule-time-pattern' | translate }}
+                    </mat-error>
                 </mat-form-field>
 
                 <button
