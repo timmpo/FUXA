@@ -21,7 +21,7 @@ var daqApi = require('./daq');
 var commandApi = require('./command');
 const reports = require('../dist/reports.service');
 const reportsApi = new reports.ReportsApiService();
-
+var scheduleApi = require('./schedule');
 var apiApp;
 var server;
 var runtime;
@@ -61,6 +61,8 @@ function init(_server, _runtime) {
             apiApp.use(commandApi.app());
             reportsApi.init(runtime, authJwt.verifyToken, verifyGroups);
             apiApp.use(reportsApi.app());
+            scheduleApi.init(runtime, authJwt.verifyToken, verifyGroups);
+            apiApp.use(scheduleApi.app());
 
             const limiter = rateLimit({
                 windowMs: 5 * 60 * 1000, // 5 minutes

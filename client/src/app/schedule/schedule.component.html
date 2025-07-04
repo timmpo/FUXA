@@ -1,0 +1,59 @@
+<div class="container">
+  <h2>{{ 'schedule-title' | translate }}</h2>
+
+  <table mat-table [dataSource]="schedules" class="mat-elevation-z8">
+    <!-- Åtgärder -->
+    <ng-container matColumnDef="actions">
+      <th mat-header-cell *matHeaderCellDef>{{ 'schedule-actions' | translate }}</th>
+      <td mat-cell *matCellDef="let schedule" class="mat-column-actions">
+        <button mat-icon-button color="primary" (click)="editSchedule(schedule)" [matTooltip]="'schedule-tooltip-edit' | translate">
+          <mat-icon>edit</mat-icon>
+        </button>
+        <button mat-icon-button color="warn" (click)="deleteSchedule(schedule.tagId)" [matTooltip]="'schedule-tooltip-delete' | translate">
+          <mat-icon>delete</mat-icon>
+        </button>
+      </td>
+    </ng-container>
+
+    <ng-container matColumnDef="name">
+      <th mat-header-cell *matHeaderCellDef class="mat-column-name header-name">
+        <button mat-icon-button color="primary" (click)="openScheduleDialog()" [matTooltip]="'schedule-tooltip-add' | translate">
+          <mat-icon>add</mat-icon>
+        </button>
+        <span class="header-text">{{ 'schedule-name' | translate }}</span>
+      </th>
+      <td mat-cell *matCellDef="let schedule" class="mat-column-name">
+        {{ schedule.name }}
+      </td>
+    </ng-container>
+
+    <!-- Tag ID -->
+    <ng-container matColumnDef="tagId">
+      <th mat-header-cell *matHeaderCellDef class="mat-column-tagId">{{ 'schedule-tagId' | translate }}</th>
+      <td mat-cell *matCellDef="let schedule" class="mat-column-tagId" style="color: var(--formInputColor);">
+        {{ schedule.tagId }}
+      </td>
+    </ng-container>
+
+    <!-- Perioder -->
+    <ng-container matColumnDef="periods">
+      <th mat-header-cell *matHeaderCellDef class="mat-column-periods">{{ 'schedule-periods' | translate }}</th>
+      <td mat-cell *matCellDef="let schedule" class="mat-column-periods" style="color: var(--formInputColor);">
+        <span *ngFor="let period of schedule.periods; let last = last">
+          {{ getDayName(period.dayOfWeek) }} {{ period.startTime }}–{{ period.endTime }}{{ last ? '' : ', ' }}
+        </span>
+      </td>
+    </ng-container>
+
+    <!-- Status -->
+    <ng-container matColumnDef="status">
+      <th mat-header-cell *matHeaderCellDef class="mat-column-status">{{ 'schedule-status' | translate }}</th>
+      <td mat-cell *matCellDef="let schedule" class="mat-column-status" style="color: var(--formInputColor);">
+        {{ schedule.isOn ? ('schedule-status-on' | translate) : ('schedule-status-off' | translate) }}
+      </td>
+    </ng-container>
+
+    <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+    <tr mat-row *matRowDef="let row; columns: displayedColumns;"></tr>
+  </table>
+</div>

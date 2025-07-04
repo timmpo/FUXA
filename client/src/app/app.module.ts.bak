@@ -221,9 +221,6 @@ import { ClientScriptAccessComponent } from './editor/client-script-access/clien
 import { EditPlaceholderComponent } from './gui-helpers/edit-placeholder/edit-placeholder.component';
 import { DeviceAdapterService } from './device-adapter/device-adapter.service';
 
-import { ScheduleComponent } from './schedule/schedule.component';
-import { ScheduleDialogComponent } from './schedule/schedule-dialog.component';
-
 export function createTranslateLoader(http: HttpClient) {
     return new TranslateHttpLoader(http, './assets/i18n/', '.json');
 }
@@ -236,8 +233,6 @@ export const myCustomTooltipDefaults: MatTooltipDefaultOptions = {
 
 @NgModule({
     declarations: [
-		ScheduleComponent,
-		ScheduleDialogComponent,
         HomeComponent,
         EditorComponent,
         HeaderComponent,

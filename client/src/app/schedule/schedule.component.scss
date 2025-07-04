@@ -1,0 +1,80 @@
+:host {
+  .container {
+    display: flex;
+    flex-direction: column;
+    min-width: 300px;
+    position: absolute;
+    bottom: 0px;
+    top: 1px;
+    left: 0px;
+    right: 0px;
+  }
+
+  .mat-table {
+    overflow: auto;
+    /* Ta bort height: 100% för att låta tabellen ta naturlig höjd */
+    /* Alternativt, sätt en maxhöjd om du vill begränsa höjden */
+    max-height: calc(100vh - 150px); /* Justerar höjden för att lämna utrymme för rubrik och knapp */
+  }
+
+  .mat-row {
+    min-height: 40px;
+    height: 43px;
+  }
+
+  .mat-cell {
+    font-size: 13px;
+  }
+
+  .mat-header-row {
+    top: 0;
+    position: sticky;
+    z-index: 1;
+  }
+
+  .mat-header-cell {
+    font-size: 15px;
+  }
+
+  /* Kolumnspecifika stilar */
+  .mat-column-actions {
+    flex: 0 0 100px; /* Anpassad bredd för åtgärder */
+  }
+
+  .mat-column-name {
+    flex: 1 1 200px;
+  }
+
+  .mat-column-tagId {
+    flex: 0 0 120px; /* Anpassad bredd för Tag ID */
+  }
+
+  .mat-column-periods {
+    flex: 1 1 280px; /* Anpassad bredd för Perioder */
+  }
+
+  .mat-column-status {
+    flex: 0 0 80px; /* Anpassad bredd för Status */
+  }
+
+  /* Behåll resterande stilar från din SCSS */
+  .filter {
+    display: inline-block;
+    min-height: 50px;
+    padding: 8px 24px 0;
+  }
+
+  .filter .mat-form-field {
+    font-size: 14px;
+    width: 100%;
+  }
+
+  .warning {
+    color: red;
+  }
+
+  .context-menu {
+    font-size: 13px;
+  }
+ 
+}

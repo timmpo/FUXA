@@ -1,0 +1,68 @@
+<mat-dialog-content>
+  <h2>
+    {{ data.tagId ? ('schedule-edit-title' | translate) : ('schedule-add-title' | translate) }}
+  </h2>
+
+  <form [formGroup]="formGroup">
+    <!-- Namn -->
+    <mat-form-field style="width: 100%;">
+      <mat-label>{{ 'schedule-name-label' | translate }}</mat-label>
+      <input matInput formControlName="name" placeholder="{{ 'schedule-name-placeholder' | translate }}">
+      <mat-error *ngIf="formGroup.get('name')?.hasError('required')">
+        {{ 'schedule-name-required' | translate }}
+      </mat-error>
+    </mat-form-field>
+
+    <!-- Tag ID -->
+    <mat-form-field style="width: 100%;">
+      <mat-label>{{ 'schedule-tagId-label' | translate }}</mat-label>
+      <input matInput formControlName="tagId" placeholder="{{ 'schedule-tagId-placeholder' | translate }}">
+      <mat-error *ngIf="formGroup.get('tagId')?.hasError('required')">
+        {{ 'schedule-tagId-required' | translate }}
+      </mat-error>
+      <mat-error *ngIf="formGroup.get('tagId')?.hasError('pattern')">
+        {{ 'schedule-tagId-pattern' | translate }}
+      </mat-error>
+    </mat-form-field>
+
+    <!-- Välj från lista -->
+    <button mat-button color="accent" (click)="openTagSelection()">
+      {{ 'schedule-select-from-list' | translate }}
+    </button>
+
+    <!-- Perioder -->
+    <div formArrayName="periods">
+      <div *ngFor="let period of periods.controls; let i = index" [formGroupName]="i" style="margin-bottom: 10px;">
+        <mat-form-field style="width: 150px; margin-right: 10px;">
+          <mat-label>{{ 'schedule-dayOfWeek-label' | translate }}</mat-label>
+          <mat-select formControlName="dayOfWeek">
+            <mat-option *ngFor="let day of daysOfWeek" [value]="day.value">{{ day.name }}</mat-option>
+          </mat-select>
+        </mat-form-field>
+
+        <mat-form-field style="width: 100px; margin-right: 10px;">
+          <mat-label>{{ 'schedule-startTime-label' | translate }}</mat-label>
+          <input matInput type="time" formControlName="startTime">
+        </mat-form-field>
+
+        <mat-form-field style="width: 100px; margin-right: 10px;">
+          <mat-label>{{ 'schedule-endTime-label' | translate }}</mat-label>
+          <input matInput type="time" formControlName="endTime">
+        </mat-form-field>
+
+        <button mat-icon-button color="warn" (click)="removePeriod(i)" *ngIf="periods.length > 1">
+          <mat-icon>delete</mat-icon>
+        </button>
+      </div>
+    </div>
+
+    <button mat-button color="primary" (click)="addPeriod()">
+      {{ 'schedule-add-period' | translate }}
+    </button>
+  </form>
+</mat-dialog-content>
+
+<mat-dialog-actions align="end">
+  <button mat-button (click)="onCancel()">{{ 'schedule-cancel' | translate }}</button>
+  <button mat-button color="primary" (click)="onSave()" [disabled]="!formGroup.valid">{{ 'schedule-save' | translate }}</button>
+</mat-dialog-actions>
