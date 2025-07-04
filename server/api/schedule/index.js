@@ -214,10 +214,10 @@ init: async function (_runtime, _secureFnc, _checkGroupsFnc) {
 
     await loadSchedules();
 
-    // 🔁 Vänta lite innan vi sätter taggar
+    // Whait some time before loading tags
     setTimeout(async () => {
         await applyCurrentStates();
-    }, 5000); // 2000 ms delay
+    }, 5000); // ms delay
 	},
     app: createApp
 };

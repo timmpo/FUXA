@@ -8,8 +8,45 @@
     top: 1px;
     left: 0px;
     right: 0px;
+	background-color: var(--workPanelBackground);
   }
 
+.header-panel {
+  position: relative;
+  top: 0px;
+  left: 0px;
+  background-color: var(--headerBackground);
+  color: var(--headerColor);
+  height: 36px;
+  width: 100%;
+  border-bottom: 1px solid var(--headerBorder);
+}
+
+/* Placera vänster/höger block */
+.header-left,
+.header-right {
+  width: 36px;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Centrera titeln oberoende av vänster/höger */
+.header-title {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  height: 36px;
+  line-height: 36px;
+  font-weight: bold;
+  white-space: nowrap;
+}
+	
+	
+	
+	
   .mat-table {
     overflow: auto;
     /* Ta bort height: 100% för att låta tabellen ta naturlig höjd */
