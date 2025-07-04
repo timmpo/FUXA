@@ -44,7 +44,7 @@ export class ScheduleComponent implements OnInit {
     deleteSchedule(tagId: string) {
         if (confirm(`Do you really want to delete the schedule for ${tagId}?`)) {
             console.log('Deleting schedule with tagId:', tagId);
-            this.http.delete(`http://localhost:1881/api/schedules/${tagId}`).subscribe({
+            this.http.delete(`/api/schedules/${tagId}`).subscribe({
                 next: () => this.loadSchedules(),
                 error: (err) => console.error('Error deleting schedule:', err)
             });
@@ -52,7 +52,7 @@ export class ScheduleComponent implements OnInit {
     }
 
     loadSchedules() {
-        this.http.get<Schedule[]>('http://localhost:1881/api/schedules').subscribe({
+        this.http.get<Schedule[]>('/api/schedules').subscribe({
             next: (schedules) => {
                 this.schedules = schedules;
             },
@@ -73,7 +73,7 @@ export class ScheduleComponent implements OnInit {
         dialogRef.afterClosed().subscribe(result => {
             console.log('Dialog closed with result:', result); // Log to verify
             if (result) {
-                this.http.post('http://localhost:1881/api/schedules', result).subscribe({
+                this.http.post('/api/schedules', result).subscribe({
                     next: () => this.loadSchedules(),
                     error: (err) => console.error('Error saving schedule:', err)
                 });
@@ -97,7 +97,7 @@ export class ScheduleComponent implements OnInit {
 
         dialogRef.afterClosed().subscribe(result => {
             if (result) {
-                this.http.put(`http://localhost:1881/api/schedules/${schedule.tagId}`, result).subscribe({
+                this.http.put(`/api/schedules/${schedule.tagId}`, result).subscribe({
                     next: () => this.loadSchedules(),
                     error: (err) => console.error('Error updating schedule:', err)
                 });
