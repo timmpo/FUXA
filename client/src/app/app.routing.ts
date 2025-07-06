@@ -40,7 +40,7 @@ const appRoutes: Routes = [
     { path: 'events', component: LogsViewComponent, canActivate: [AuthGuard] },
     { path: 'view', component: ViewComponent },
     { path: 'mapsLocations', component: MapsLocationListComponent, canActivate: [AuthGuard] },
-    { path: 'schedule', component: ScheduleComponent, canActivate: [AuthGuard] }, // mew route
+    { path: 'schedule', component: ScheduleComponent},//, canActivate: [AuthGuard] }, // mew route
     // otherwise redirect to home
     { path: '**', redirectTo: '' }
 ];

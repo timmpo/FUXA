@@ -1714,6 +1714,7 @@
     "msg.texts-text-remove": "Would you like to remove Text '{{value}}'?",
     "msg.operation-unauthorized": "Operation Unauthorized!",
 	
+	"schedule-tagName": "Tagname",
     "schedule-title": "Schedules",
     "schedule-actions": "Actions",
     "schedule-tooltip-edit": "Edit Schedule",

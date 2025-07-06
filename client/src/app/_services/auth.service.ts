@@ -33,6 +33,8 @@ export class AuthService {
 				return this.http.post(this.endPointConfig + '/api/signin', { username: username, password: password }).subscribe((result: any) => {
 					if (result) {
 						this.currentUser = <UserProfile>result.data;
+						console.log('current user', this.currentUser);
+						console.log('current user', this.currentUser.info);
 						if (this.currentUser.info) {
 							this.currentUser.infoRoles = JSON.parse(this.currentUser.info)?.roles;
 						}

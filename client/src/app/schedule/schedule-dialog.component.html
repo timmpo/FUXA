@@ -58,27 +58,26 @@
 
                 <button
                     mat-icon-button
-                    color="warn"
                     (click)="removePeriod(i)"
                     *ngIf="periods.length > 1"
                 >
-                    <mat-icon>delete</mat-icon>
+                    <mat-icon>clear</mat-icon>
                 </button>
             </div>
         </div>
 
-        <button mat-button color="primary" (click)="addPeriod()">
+        <button mat-raised-button color="primary" (click)="addPeriod()">
             {{ 'schedule-add-period' | translate }}
         </button>
     </form>
 </mat-dialog-content>
 
 <mat-dialog-actions align="end">
-    <button mat-button (click)="onCancel()">
+    <button mat-raised-button (click)="onCancel()">
         {{ 'schedule-cancel' | translate }}
     </button>
     <button
-        mat-button
+        mat-raised-button
         color="primary"
         (click)="onSave()"
         [disabled]="!formGroup.valid"

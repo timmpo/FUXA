@@ -74,6 +74,7 @@ export class AddScheduleDialogComponent {
             // Open ScheduleDialogComponent to add periods
             const scheduleDialogRef = this.dialog.open(ScheduleDialogComponent, {
                 width: '600px',
+				height: '400px',
                 data: formData,
                 autoFocus: true
             });
@@ -91,3 +92,4 @@ export class AddScheduleDialogComponent {
         }
     }
 }
+

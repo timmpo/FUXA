@@ -5,6 +5,7 @@ const path = require('path');
 const schedule = require('node-schedule');
 const moment = require('moment');
 
+// Todo: Save in fuxa project
 const SCHEDULE_FILE = './schedules.json';
 
 let runtime;
@@ -119,6 +120,7 @@ async function applyCurrentStates() {
 function createApp() {
     const commandApp = express();
 
+    // Middleware: kolla att runtime är initierad
     commandApp.use((req, res, next) => {
         if (!runtime?.project) {
             res.status(404).end();
@@ -127,8 +129,29 @@ function createApp() {
         }
     });
 
-    // POST - create schedule
-    commandApp.post('/api/schedules', async (req, res) => {
+    // Hjälpfunktion: kontrollera admin-behörighet
+    function requireAdmin(req, res) {
+        const permission = checkGroupsFnc(req);
+
+        if (res.statusCode === 403) {
+            runtime.logger.error("Token expired");
+            res.status(403).json({ error: "token_expired", message: "Token expired" });
+            return false;
+        }
+
+        if (!authJwt.haveAdminPermission(permission)) {
+            runtime.logger.error("Unauthorized access");
+            res.status(401).json({ error: "unauthorized_error", message: "Unauthorized!" });
+            return false;
+        }
+
+        return true;
+    }
+
+    // POST - skapa nytt schema
+    commandApp.post('/api/schedules', secureFnc, async (req, res) => {
+        if (!requireAdmin(req, res)) return;
+
         const { tagId, name, periods, onValue, offValue, timeFormat } = req.body;
 
         if (!tagId || !Array.isArray(periods) || !onValue || !offValue || !timeFormat) {
@@ -142,13 +165,15 @@ function createApp() {
         schedules.push(newSchedule);
         scheduleJobs(newSchedule);
         await saveSchedules();
-        await applyCurrentStates(); // Apply immediately after creating new schedule
+        await applyCurrentStates();
 
         res.json({ message: 'Schedule created', schedule: newSchedule });
     });
 
-    // PUT - update schedule
-    commandApp.put('/api/schedules/:tagId', async (req, res) => {
+    // PUT - uppdatera schema
+    commandApp.put('/api/schedules/:tagId', secureFnc, async (req, res) => {
+        if (!requireAdmin(req, res)) return;
+
         const tagId = req.params.tagId;
         const { name, periods, onValue, offValue, timeFormat } = req.body;
 
@@ -163,13 +188,15 @@ function createApp() {
         schedules.push(updatedSchedule);
         scheduleJobs(updatedSchedule);
         await saveSchedules();
-        await applyCurrentStates(); // Apply immediately after updating
+        await applyCurrentStates();
 
         res.json({ message: 'Schedule updated', schedule: updatedSchedule });
     });
 
-    // DELETE - remove schedule
-    commandApp.delete('/api/schedules/:tagId', async (req, res) => {
+    // DELETE - ta bort schema
+    commandApp.delete('/api/schedules/:tagId', secureFnc, async (req, res) => {
+        if (!requireAdmin(req, res)) return;
+
         const tagId = req.params.tagId;
 
         jobs = jobs.filter(job => {
@@ -184,8 +211,10 @@ function createApp() {
         res.json({ message: 'Schedule deleted', tagId });
     });
 
-    // GET - return all schedules with current status
-    commandApp.get('/api/schedules', (req, res) => {
+    // GET - hämta alla scheman med status
+    commandApp.get('/api/schedules', secureFnc, async (req, res) => {
+        if (!requireAdmin(req, res)) return;
+
         const now = moment();
         const status = schedules.map(s => {
             const isOn = s.periods.some(p => {
@@ -196,15 +225,17 @@ function createApp() {
                 const end = moment(p.endTime, 'HH:mm');
                 const nowTime = moment(now.format('HH:mm'), 'HH:mm');
 
-                return nowTime.isBetween(start, end);
+                return nowTime.isBetween(start, end, null, '[)');
             });
             return { ...s, isOn };
         });
+
         res.json(status);
     });
 
     return commandApp;
 }
+
 
 module.exports = {
     init: async function (_runtime, _secureFnc, _checkGroupsFnc) {

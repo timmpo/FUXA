@@ -32,8 +32,9 @@
         </mat-form-field>
 
         <!-- Select from list -->
-        <button mat-button color="accent" (click)="openTagSelection()">
-            {{ 'schedule-select-from-list' | translate }}
+        <button mat-icon-button (click)="openTagSelection()">
+		    <mat-icon>link</mat-icon>
+            {{ 'schedule-select-from-list' | translate }}			 
         </button>
 
         <!-- On Value -->
@@ -84,11 +85,11 @@
 </mat-dialog-content>
 
 <mat-dialog-actions align="end">
-    <button mat-button (click)="onCancel()">
+    <button mat-raised-button (click)="onCancel()">
         {{ 'schedule-cancel' | translate }}
     </button>
     <button
-        mat-button
+        mat-raised-button
         color="primary"
         (click)="onSave()"
         [disabled]="!formGroup.valid"
