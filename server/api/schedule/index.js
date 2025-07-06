@@ -120,7 +120,7 @@ async function applyCurrentStates() {
 function createApp() {
     const commandApp = express();
 
-    // Middleware: kolla att runtime är initierad
+    // Middleware: Check that the runtime has been initialized
     commandApp.use((req, res, next) => {
         if (!runtime?.project) {
             res.status(404).end();
@@ -129,7 +129,7 @@ function createApp() {
         }
     });
 
-    // Hjälpfunktion: kontrollera admin-behörighet
+    // Help function: check admin permissions
     function requireAdmin(req, res) {
         const permission = checkGroupsFnc(req);
 
@@ -148,7 +148,7 @@ function createApp() {
         return true;
     }
 
-    // POST - skapa nytt schema
+    // POST - create new schedule
     commandApp.post('/api/schedules', secureFnc, async (req, res) => {
         if (!requireAdmin(req, res)) return;
 
@@ -170,7 +170,7 @@ function createApp() {
         res.json({ message: 'Schedule created', schedule: newSchedule });
     });
 
-    // PUT - uppdatera schema
+    // PUT - update schedule
     commandApp.put('/api/schedules/:tagId', secureFnc, async (req, res) => {
         if (!requireAdmin(req, res)) return;
 
@@ -193,7 +193,7 @@ function createApp() {
         res.json({ message: 'Schedule updated', schedule: updatedSchedule });
     });
 
-    // DELETE - ta bort schema
+    // DELETE - delete schedule
     commandApp.delete('/api/schedules/:tagId', secureFnc, async (req, res) => {
         if (!requireAdmin(req, res)) return;
 
@@ -211,7 +211,7 @@ function createApp() {
         res.json({ message: 'Schedule deleted', tagId });
     });
 
-    // GET - hämta alla scheman med status
+    // GET - fetch all schedules with status
     commandApp.get('/api/schedules', secureFnc, async (req, res) => {
         if (!requireAdmin(req, res)) return;
 
