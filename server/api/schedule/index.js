@@ -1,45 +1,55 @@
+/**
+ * Schedules API: Manage schedules in FUXA project storage
+ */
+
+'use strict';
+
 const express = require("express");
 const authJwt = require('../jwt-helper');
-const fs = require('fs');
-const path = require('path');
 const schedule = require('node-schedule');
 const moment = require('moment');
 
-// Todo: Save in fuxa project
-const SCHEDULE_FILE = './schedules.json';
-
-let runtime;
-let secureFnc;
-let checkGroupsFnc;
+var runtime;
+var secureFnc;
+var checkGroupsFnc;
 
 let schedules = [];
 let jobs = [];
 
+/**
+ * Load schedules from FUXA project storage
+ */
 async function loadSchedules() {
     try {
-        const data = await fs.promises.readFile(SCHEDULE_FILE, 'utf8');
-        schedules = JSON.parse(data);
-        console.log('Loaded schedules from file:', schedules);
+        schedules = await runtime.project.getSchedules();
+        console.log('Loaded schedules from project storage:', schedules);
         schedules.forEach(scheduleJobs);
     } catch (err) {
-        if (err.code === 'ENOENT') {
-            console.log('No schedule file found, starting with empty schedules');
-            schedules = [];
-        } else {
-            console.error('Error loading schedules:', err);
-        }
+        console.error('Error loading schedules from project storage:', err);
+        schedules = [];
     }
 }
 
+/**
+ * Save schedules to FUXA project storage
+ */
 async function saveSchedules() {
     try {
-        await fs.promises.writeFile(SCHEDULE_FILE, JSON.stringify(schedules, null, 2));
-        console.log('Schedules saved to file');
+        const { ProjectDataCmdType } = runtime.project;
+        for (const sched of schedules) {
+            await runtime.project.setProjectData(ProjectDataCmdType.SetSchedule, sched);
+        }
+        console.log('Schedules saved to project storage');
     } catch (err) {
-        console.error('Error saving schedules:', err);
+        console.error('Error saving schedules to project storage:', err);
+        throw err;
     }
 }
 
+/**
+ * Schedule jobs for a given schedule object
+ * @param {Object} schedObj - The schedule object
+ */
 function scheduleJobs(schedObj) {
     if (!runtime) {
         console.error('Runtime not initialized!');
@@ -83,6 +93,9 @@ function scheduleJobs(schedObj) {
     });
 }
 
+/**
+ * Apply current states based on schedule periods
+ */
 async function applyCurrentStates() {
     if (!runtime) {
         console.error('Runtime not initialized!');
@@ -117,10 +130,13 @@ async function applyCurrentStates() {
     }
 }
 
+/**
+ * Create Express app for schedule endpoints
+ */
 function createApp() {
     const commandApp = express();
 
-    // Middleware: Check that the runtime has been initialized
+    // Middleware: Check that runtime is initialized
     commandApp.use((req, res, next) => {
         if (!runtime?.project) {
             res.status(404).end();
@@ -129,7 +145,7 @@ function createApp() {
         }
     });
 
-    // Help function: check admin permissions
+    // Helper function: Check admin permission
     function requireAdmin(req, res) {
         const permission = checkGroupsFnc(req);
 
@@ -148,7 +164,7 @@ function createApp() {
         return true;
     }
 
-    // POST - create new schedule
+    // POST - Create new schedule
     commandApp.post('/api/schedules', secureFnc, async (req, res) => {
         if (!requireAdmin(req, res)) return;
 
@@ -164,13 +180,17 @@ function createApp() {
         const newSchedule = { tagId, name: name || '', periods, onValue, offValue, timeFormat };
         schedules.push(newSchedule);
         scheduleJobs(newSchedule);
-        await saveSchedules();
-        await applyCurrentStates();
-
-        res.json({ message: 'Schedule created', schedule: newSchedule });
+        try {
+            await saveSchedules();
+            await applyCurrentStates();
+            res.json({ message: 'Schedule created', schedule: newSchedule });
+        } catch (err) {
+            res.status(500).json({ error: 'server_error', message: err.message });
+            runtime.logger.error(`api post schedules: ${err.message}`);
+        }
     });
 
-    // PUT - update schedule
+    // PUT - Update schedule
     commandApp.put('/api/schedules/:tagId', secureFnc, async (req, res) => {
         if (!requireAdmin(req, res)) return;
 
@@ -187,13 +207,17 @@ function createApp() {
         const updatedSchedule = { tagId, name: name || '', periods, onValue, offValue, timeFormat };
         schedules.push(updatedSchedule);
         scheduleJobs(updatedSchedule);
-        await saveSchedules();
-        await applyCurrentStates();
-
-        res.json({ message: 'Schedule updated', schedule: updatedSchedule });
+        try {
+            await saveSchedules();
+            await applyCurrentStates();
+            res.json({ message: 'Schedule updated', schedule: updatedSchedule });
+        } catch (err) {
+            res.status(500).json({ error: 'server_error', message: err.message });
+            runtime.logger.error(`api put schedules: ${err.message}`);
+        }
     });
 
-    // DELETE - delete schedule
+    // DELETE - Remove schedule
     commandApp.delete('/api/schedules/:tagId', secureFnc, async (req, res) => {
         if (!requireAdmin(req, res)) return;
 
@@ -206,36 +230,45 @@ function createApp() {
         });
 
         schedules = schedules.filter(s => s.tagId !== tagId);
-        await saveSchedules();
-
-        res.json({ message: 'Schedule deleted', tagId });
+        try {
+            const { ProjectDataCmdType } = runtime.project;
+            await runtime.project.setProjectData(ProjectDataCmdType.DelSchedule, { tagId });
+            res.json({ message: 'Schedule deleted', tagId });
+        } catch (err) {
+            res.status(500).json({ error: 'server_error', message: err.message });
+            runtime.logger.error(`api delete schedules: ${err.message}`);
+        }
     });
 
-    // GET - fetch all schedules with status
+    // GET - Retrieve all schedules with status
     commandApp.get('/api/schedules', secureFnc, async (req, res) => {
         if (!requireAdmin(req, res)) return;
 
-        const now = moment();
-        const status = schedules.map(s => {
-            const isOn = s.periods.some(p => {
-                const today = now.day();
-                if (parseInt(p.dayOfWeek) !== today) return false;
+        try {
+            const now = moment();
+            const status = schedules.map(s => {
+                const isOn = s.periods.some(p => {
+                    const today = now.day();
+                    if (parseInt(p.dayOfWeek) !== today) return false;
 
-                const start = moment(p.startTime, 'HH:mm');
-                const end = moment(p.endTime, 'HH:mm');
-                const nowTime = moment(now.format('HH:mm'), 'HH:mm');
+                    const start = moment(p.startTime, 'HH:mm');
+                    const end = moment(p.endTime, 'HH:mm');
+                    const nowTime = moment(now.format('HH:mm'), 'HH:mm');
 
-                return nowTime.isBetween(start, end, null, '[)');
+                    return nowTime.isBetween(start, end, null, '[)');
+                });
+                return { ...s, isOn };
             });
-            return { ...s, isOn };
-        });
 
-        res.json(status);
+            res.json(status);
+        } catch (err) {
+            res.status(500).json({ error: 'server_error', message: err.message });
+            runtime.logger.error(`api get schedules: ${err.message}`);
+        }
     });
 
     return commandApp;
 }
-
 
 module.exports = {
     init: async function (_runtime, _secureFnc, _checkGroupsFnc) {

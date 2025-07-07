@@ -58,7 +58,7 @@ function init(_settings, log, _runtime) {
  */
 function load() {
     return new Promise(function (resolve, reject) {
-        data = { devices: {}, hmi: { views: [] }, texts: [], alarms: [] };
+        data = { devices: {}, hmi: { views: [] }, texts: [], alarms: [], schedules: [] };
         // load general data
         prjstorage.getSection(prjstorage.TableType.GENERAL).then(grows => {
             for (var ig = 0; ig < grows.length; ig++) {
@@ -142,6 +142,16 @@ function load() {
                                 logger.error(`project.prjstorage-failed-to-load! '${prjstorage.TableType.LOCATIONS}' ${err}`);
                                 callback(err);
                             });
+                        },
+                        // step 7 get schedules
+                        function (callback) {
+                            getSchedules().then(schedules => {
+                                data.schedules = schedules;
+                                callback();
+                            }).catch(function (err) {
+                                logger.error(`project.prjstorage-failed-to-load! '${prjstorage.TableType.SCHEDULES}' ${err}`);
+                                callback(err);
+                            });
                         }
                     ],
                     async function (err) {
@@ -171,7 +181,7 @@ function load() {
  * Save the value in project storage
  * First set the value in local data, then save in storage
  * @param {*} cmd
- * @param {*} data
+ * @param {*} value
  */
 function setProjectData(cmd, value) {
     return new Promise(function (resolve, reject) {
@@ -262,6 +272,14 @@ function setProjectData(cmd, value) {
                 section.table = prjstorage.TableType.LOCATIONS;
                 section.name = value.id;
                 toremove = removeMapsLocation(value);
+            } else if (cmd === ProjectDataCmdType.SetSchedule) {
+                section.table = prjstorage.TableType.SCHEDULES;
+                section.name = value.tagId;
+                setSchedule(value);
+            } else if (cmd === ProjectDataCmdType.DelSchedule) {
+                section.table = prjstorage.TableType.SCHEDULES;
+                section.name = value.tagId;
+                toremove = removeSchedule(value);
             } else {
                 logger.error(`prjstorage.setdata failed! '${section.table}'`);
                 reject('prjstorage.failed-to-setdata: Command not found!');
@@ -313,7 +331,7 @@ function removeView(view) {
     var pos = -1;
     for (var i = 0; i < data.hmi.views.length; i++) {
         if (data.hmi.views[i].id === view.id) {
-            data.hmi.views.splice(i, 1);
+        data.hmi.views.splice(i, 1);
             return true;
         }
     }
@@ -384,7 +402,7 @@ function setClientAccess(clientAccess) {
 }
 
 /**
- * Set or add if not exist (check with taxt.name) the Text in Project
+ * Set or add if not exist (check with text.id) the Text in Project
  * @param {*} text
  */
 function setText(text) {
@@ -554,7 +572,7 @@ function removeNotification(notification) {
 
 /**
  * Remove the Report from Project
- * @param {*} script
+ * @param {*} report
  */
  function removeReport(report) {
     if (data.reports) {
@@ -598,6 +616,43 @@ function removeMapsLocation(location) {
         for (var i = 0; i < data.mapsLocations.length; i++) {
             if (data.mapsLocations[i].id === location.id) {
                 data.mapsLocations.splice(i, 1);
+                return true;
+            }
+        }
+    }
+    return false;
+}
+
+/**
+ * Set or add if not exist (check with schedule.tagId) the Schedule in Project
+ * @param {*} schedule
+ */
+function setSchedule(schedule) {
+    if (!data.schedules) {
+        data.schedules = [];
+    }
+    var pos = -1;
+    for (var i = 0; i < data.schedules.length; i++) {
+        if (data.schedules[i].tagId === schedule.tagId) {
+            pos = i;
+        }
+    }
+    if (pos >= 0) {
+        data.schedules[pos] = schedule;
+    } else {
+        data.schedules.push(schedule);
+    }
+}
+
+/**
+ * Remove the Schedule from Project
+ * @param {*} schedule
+ */
+function removeSchedule(schedule) {
+    if (data.schedules) {
+        for (var i = 0; i < data.schedules.length; i++) {
+            if (data.schedules[i].tagId === schedule.tagId) {
+                data.schedules.splice(i, 1);
                 return true;
             }
         }
@@ -700,6 +755,14 @@ function setProject(prjcontent) {
                         if (locations && locations.length) {
                             for (var i = 0; i < locations.length; i++) {
                                 scs.push({ table: prjstorage.TableType.LOCATIONS, name: locations[i].id, value: locations[i] });
+                            }
+                        }
+                    } else if (key === 'schedules') {
+                        // schedules
+                        var schedules = prjcontent[key];
+                        if (schedules && schedules.length) {
+                            for (var i = 0; i < schedules.length; i++) {
+                                scs.push({ table: prjstorage.TableType.SCHEDULES, name: schedules[i].tagId, value: schedules[i] });
                             }
                         }
                     } else {
@@ -892,6 +955,28 @@ function getMapsLocations() {
 }
 
 /**
+ * Get the schedules
+ */
+function getSchedules() {
+    return new Promise(function (resolve, reject) {
+        prjstorage.getSection(prjstorage.TableType.SCHEDULES).then(drows => {
+            if (drows.length > 0) {
+                var schedules = [];
+                for (var id = 0; id < drows.length; id++) {
+                    schedules.push(JSON.parse(drows[id].value));
+                }
+                resolve(schedules);
+            } else {
+                resolve([]);
+            }
+        }).catch(function (err) {
+            logger.error(`project.prjstorage.get-schedules failed! '${prjstorage.TableType.SCHEDULES} ${err}'`);
+            reject(err);
+        });
+    });
+}
+
+/**
  * Set the device property
  */
 function setDeviceProperty(query) {
@@ -1045,7 +1130,6 @@ const ProjectDataCmdType = {
     Languages: 'languages',
     ClientAccess: 'client-access',
     SetText: 'set-text',
-    SetText: 'set-text',
     DelText: 'del-text',
     SetAlarm: 'set-alarm',
     DelAlarm: 'del-alarm',
@@ -1055,8 +1139,10 @@ const ProjectDataCmdType = {
     DelScript: 'del-script',
     SetReport: 'set-report',
     DelReport: 'del-report',
-    SetMapsLocation:'set-maps-location',
+    SetMapsLocation: 'set-maps-location',
     DelMapsLocation: 'del-maps-location',
+    SetSchedule: 'set-schedule',
+    DelSchedule: 'del-schedule'
 }
 
 module.exports = {
@@ -1074,5 +1160,6 @@ module.exports = {
     getProject: getProject,
     setProject: setProject,
     getProjectDemo: getProjectDemo,
+    getSchedules: getSchedules,
     ProjectDataCmdType, ProjectDataCmdType,
 };
