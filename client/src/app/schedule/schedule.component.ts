@@ -9,12 +9,12 @@ import { ToastNotifierService } from '../_services/toast-notifier.service';
 import { ProjectService } from '../_services/project.service';
 
 // To fix:
-// The api on backend needs admin permission for connection when use of autthentication with token but we need to be able to show current schedules 
-// and change the periods without full admin permissions, for now we need admin permissions to use the schedule.
+// The api on backend needs admin permission for connection when use of autthentication with token, but we need to be able to show current schedules 
+// and change the periods without full admin permissions, for now we need admin permissions to use the schedule properly.
 // We only want to use admin permissions to add a new schedule not to show.
 // Solution, Get rid of the api and communicate via socket instead ? 
-// Save in fuxa project. For know we save in a json file in fuxa server root.
 // Time conversions: PM/AM time conversions need more work.
+// Add a reaload button.
 
 // Info
 // Wen running client mode we need to add http://localhost:1881 for the api connections below
