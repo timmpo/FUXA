@@ -1,8 +1,8 @@
 import { Component, OnInit } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { MatLegacyDialog as MatDialog } from '@angular/material/legacy-dialog';
-import { ScheduleDialogComponent } from './schedule-dialog.component';
-import { AddScheduleDialogComponent } from './add-schedule-dialog.component';
+import { ScheduleDialogComponent } from './schedule-dialog/schedule-dialog.component';
+import { AddScheduleDialogComponent } from './schedule-dialog/add-schedule-dialog.component';
 import { TranslateService } from '@ngx-translate/core';
 import { AuthService } from '../_services/auth.service';
 import { ToastNotifierService } from '../_services/toast-notifier.service';
@@ -11,10 +11,8 @@ import { ProjectService } from '../_services/project.service';
 // To fix:
 // The api on backend needs admin permission for connection when use of autthentication with token, but we need to be able to show current schedules 
 // and change the periods without full admin permissions, for now we need admin permissions to use the schedule properly.
-// We only want to use admin permissions to add a new schedule not to show.
-// Solution, Get rid of the api and communicate via socket instead ? 
-// Time conversions: PM/AM time conversions need more work.
-// Add a reaload button.
+// We only want to use admin permissions to add a new schedule, not to show.
+// Time conversions: PM/AM time conversions need more testing.
 
 // Info
 // Wen running client mode we need to add http://localhost:1881 for the api connections below
@@ -39,7 +37,15 @@ export class ScheduleComponent implements OnInit {
 
 		
     schedules: Schedule[] = [];
-    displayedColumns: string[] = ['select', 'name', 'tagName', 'tagId', 'periods', 'status', 'actions'];
+    displayedColumns: string[] = [
+	    'select',
+	    'name', 
+		'tagName', 
+		//'tagId', // Hide the tag id colum.. 
+		'periods', 
+		'status', 
+		'actions'
+	];
 
     constructor(
         private http: HttpClient,
@@ -47,7 +53,7 @@ export class ScheduleComponent implements OnInit {
         private translateService: TranslateService,
         private authService: AuthService,
         private projectService: ProjectService,
-		private toastNotifier: ToastNotifierService,
+		private toastNotifier: ToastNotifierService
     ) {
         console.log('MatDialog:', this.dialog);
     }
@@ -93,7 +99,7 @@ export class ScheduleComponent implements OnInit {
     }
 
     loadSchedules() {
-        this.http.get<Schedule[]>('/api/schedules').subscribe({
+        this.http.get<Schedule[]>('http://localhost:1881/api/schedules').subscribe({
             next: (schedules) => {
                 this.schedules = schedules;
             },
@@ -140,7 +146,7 @@ export class ScheduleComponent implements OnInit {
 
             // Only save if the user has edit permissions.
             if (result && permission.enabled) {
-                this.http.post('/api/schedules', result).subscribe({
+                this.http.post('http://localhost:1881/api/schedules', result).subscribe({
                     next: () => this.loadSchedules(),
                     error: (err) => console.error('Error saving schedule:', err)
                 });
@@ -166,7 +172,7 @@ export class ScheduleComponent implements OnInit {
 
         dialogRef.afterClosed().subscribe(result => {
             if (result) {
-                this.http.put(`/api/schedules/${schedule.tagId}`, result).subscribe({
+                this.http.put(`http://localhost:1881/api/schedules/${schedule.tagId}`, result).subscribe({
                     next: () => this.loadSchedules(),
                     error: (err) => console.error('Error updating schedule:', err)
                 });

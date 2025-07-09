@@ -10,69 +10,71 @@
     background-color: var(--workPanelBackground);
   }
 
-  .header-panel {
-    position: relative;
+  .header-container {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
     height: 36px;
     width: 100%;
     background-color: var(--headerBackground);
     color: var(--headerColor);
     border-bottom: 1px solid var(--headerBorder);
+    padding: 0 16px; /* Optional: Adds spacing on sides */
+    box-sizing: border-box;
   }
 
   .header-left {
-    width: 36px;
-    height: 100%;
     display: flex;
     align-items: center;
-    justify-content: center;
+    justify-content: flex-start;
+    flex: 0 0 auto; /* Takes only the space needed */
   }
 
   .header-title {
-    position: absolute;
-    top: 0;
-    left: 50%;
-    transform: translateX(-50%);
-    height: 36px;
-    line-height: 36px;
+    flex: 1; /* Takes available space to center itself */
+    text-align: center;
     font-weight: bold;
     white-space: nowrap;
+    line-height: 36px;
   }
 
-.mat-table {
-  width: 100%;
-  table-layout: fixed;
-}
-
-.mat-header-row, .mat-row {
-  display: flex;
-  width: 100%;
-}
-
-  .mat-cell {
-  width: 100%;
+  .header-right {
     display: flex;
     align-items: center;
+    justify-content: flex-end;
+    flex: 0 0 auto; /* Takes only the space needed */
+  }
 
+
+  .mat-table {
+    width: 100%;
+    table-layout: fixed;
+  }
+
+  .mat-header-row,
+  .mat-row {
+    display: flex;
+    width: 100%;
+  }
+
+  .mat-cell {
+    width: 100%;
+    display: flex;
+    align-items: center;
   }
 
   .mat-header-cell {
-  width: 100%;
+    width: 100%;
     display: flex;
     align-items: center;
     font-size: 15px;
-    //font-size: 15px;
-    //font-weight: 500;
-    //background-color: var(--tableHeaderBackground);
-	//display: flex;
-	//align-items: center;
   }
 
-
-  // Kolumnanpassningar
-  
+  /* Column adjustments */
   .mat-column-tagName {
     flex: 0 1 220px;
   }
+
   .mat-column-name {
     flex: 0 1 220px;
   }
@@ -88,20 +90,12 @@
   .mat-column-status {
     flex: 0 0 80px;
   }
-  
-  .mat-column-select {
-     flex: 0 1 70px;
-     //width: 50px;
-     //justify-content: flex-start;
-}
 
-  
-  .mat-column-actions {
-   flex: 1 1 40px;
-  //justify-content: center;
+  .mat-column-select {
+    flex: 0 1 70px;
   }
-  
-  
-  
-  
+
+  .mat-column-actions {
+    flex: 1 1 40px;
+  }
 }

@@ -2,6 +2,7 @@ import { Component, Inject } from '@angular/core';
 import { UntypedFormBuilder, UntypedFormGroup, FormArray, Validators } from '@angular/forms';
 import { MatLegacyDialogRef as MatDialogRef, MAT_LEGACY_DIALOG_DATA } from '@angular/material/legacy-dialog';
 import { TranslateService } from '@ngx-translate/core';
+import { ProjectService } from '../../_services/project.service';
 
 interface Period {
     dayOfWeek: string;
@@ -24,6 +25,9 @@ interface ScheduleData {
     styleUrls: ['./schedule-dialog.component.css']
 })
 export class ScheduleDialogComponent {
+	// Option: Hide tag id
+	showTagId = false;
+	
     formGroup: UntypedFormGroup;
     daysOfWeek: { value: string; name: string }[] = [];
     // Store non-editable fields to include in the submitted data
@@ -33,7 +37,8 @@ export class ScheduleDialogComponent {
         private fb: UntypedFormBuilder,
         public dialogRef: MatDialogRef<ScheduleDialogComponent>,
         @Inject(MAT_LEGACY_DIALOG_DATA) public data: ScheduleData,
-        private translateService: TranslateService
+        private translateService: TranslateService,
+		private projectService: ProjectService
     ) {
         this.scheduleData = data;
         this.daysOfWeek = [
@@ -56,7 +61,12 @@ export class ScheduleDialogComponent {
             this.addPeriod();
         }
     }
-
+	    // Lazy...
+	    getDeviceTagName(tagId: string): string {
+        console.log('tag name: ', this.projectService.getTagFromId(tagId)?.name);
+        return this.projectService.getTagFromId(tagId)?.name || 'Unknown Tag';
+    }
+	
     get periods() {
         return this.formGroup.get('periods') as FormArray;
     }

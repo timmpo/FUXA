@@ -1,16 +1,22 @@
 <div class="container">
-    <div class="header-panel">
-        <div class="header-left">
-            <button mat-icon-button (click)="goBack()" aria-label="Back">
-                <mat-icon>arrow_back</mat-icon>
-            </button>
-        </div>
+	<div class="header-container">
+	  <div class="header-left">
+		<button mat-icon-button (click)="goBack()" aria-label="Back">
+		  <mat-icon>arrow_back</mat-icon>
+		</button>
+	  </div>
 
-        <div class="header-title">
-            {{ 'schedule-title' | translate }}
-        </div>
+	  <div class="header-title">
+		{{ 'schedule-title' | translate }}
+	  </div>
+
+	  <div class="header-right">
+		<button mat-icon-button (click)="loadSchedules()">
+		  <mat-icon>autorenew</mat-icon>
+		</button>
+	  </div>
+	</div>
 <table mat-table [dataSource]="schedules" class="mat-elevation-z8">
-
 
   <!-- Add/edit -->
   <ng-container matColumnDef="select">

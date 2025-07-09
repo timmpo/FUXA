@@ -1,5 +1,5 @@
 /**
- * Schedules API: Manage schedules in FUXA project storage
+ * Schedules API: Manage schedules
  */
 
 'use strict';
@@ -64,6 +64,7 @@ function scheduleJobs(schedObj) {
         const [startHour, startMinute] = startTime.split(':');
         const startCron = `${startMinute} ${startHour} * * ${dayOfWeek}`;
         const startJob = schedule.scheduleJob(startCron, async () => {
+			// On
             console.log(`Started ON period for ${tagId} at ${moment().format('YYYY-MM-DD HH:mm:ss')} with value ${onValue}`);
             try {
                 const success = await runtime.devices.setTagValue(tagId, onValue);
@@ -79,6 +80,7 @@ function scheduleJobs(schedObj) {
         const [endHour, endMinute] = endTime.split(':');
         const endCron = `${endMinute} ${endHour} * * ${dayOfWeek}`;
         const endJob = schedule.scheduleJob(endCron, async () => {
+			// Off
             console.log(`Ended OFF period for ${tagId} at ${moment().format('YYYY-MM-DD HH:mm:ss')} with value ${offValue}`);
             try {
                 const success = await runtime.devices.setTagValue(tagId, offValue);

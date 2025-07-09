@@ -4,7 +4,8 @@
     <!-- Display non-editable fields -->
     <div style="margin-bottom: 20px;">
         <div><strong>{{ 'schedule-name-label' | translate }}:</strong> {{ data.name }}</div>
-        <div><strong>{{ 'schedule-tagId-label' | translate }}:</strong> {{ data.tagId }}</div>
+        <div *ngIf="showTagId"><strong>{{ 'schedule-tagId-label' | translate }}:</strong> {{ data.tagId }}</div>
+		<div><strong>{{ 'schedule-tagName' | translate }}:</strong> {{ getDeviceTagName( data.tagId) }}</div>
     </div>
 
     <form [formGroup]="formGroup">

@@ -1,7 +1,7 @@
 import { Component, Inject } from '@angular/core';
 import { UntypedFormBuilder, UntypedFormGroup, Validators } from '@angular/forms';
 import { MatLegacyDialogRef as MatDialogRef, MAT_LEGACY_DIALOG_DATA, MatLegacyDialog } from '@angular/material/legacy-dialog';
-import { DeviceTagSelectionComponent, DeviceTagSelectionData } from '../device/device-tag-selection/device-tag-selection.component';
+import { DeviceTagSelectionComponent, DeviceTagSelectionData } from '../../device/device-tag-selection/device-tag-selection.component';
 import { ScheduleDialogComponent } from './schedule-dialog.component';
 import { TranslateService } from '@ngx-translate/core';
 
