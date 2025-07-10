@@ -222,8 +222,8 @@ import { EditPlaceholderComponent } from './gui-helpers/edit-placeholder/edit-pl
 import { DeviceAdapterService } from './device-adapter/device-adapter.service';
 
 import { ScheduleComponent } from './schedule/schedule.component';
-import { ScheduleDialogComponent } from './schedule/schedule-dialog.component';
-import { AddScheduleDialogComponent } from './schedule/add-schedule-dialog.component';
+import { ScheduleDialogComponent } from './schedule/schedule-dialog/schedule-dialog.component';
+import { AddScheduleDialogComponent } from './schedule/schedule-dialog/add-schedule-dialog.component';
 
 export function createTranslateLoader(http: HttpClient) {
     return new TranslateHttpLoader(http, './assets/i18n/', '.json');
