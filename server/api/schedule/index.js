@@ -9,12 +9,28 @@ const authJwt = require('../jwt-helper');
 const schedule = require('node-schedule');
 const moment = require('moment');
 
+let Holidays;
+let hd;
+let holidayError = false;
+
+// Try to load date-holidays, the idea is that schedule should work without.
+// If this fail we disable the skipp holiday slider in the frontend.
+try {
+    Holidays = require('date-holidays');    
+} catch (err) {
+    console.warn('[WARNING] Could not load date holidays - holiday check disabled.');
+    hd = null; // fallback
+	holidayError = true;
+}
+
 var runtime;
 var secureFnc;
 var checkGroupsFnc;
 
 let schedules = [];
 let jobs = [];
+
+//var utils = require('../../runtime/utils');
 
 /**
  * Load schedules from FUXA project storage
@@ -52,48 +68,88 @@ async function saveSchedules() {
  */
 function scheduleJobs(schedObj) {
     if (!runtime) {
-        console.error('Runtime not initialized!');
+        console.error('Error Schedule runtime not initialized!');
         return;
     }
 
-    const { tagId, periods, onValue, offValue } = schedObj;
+    // We need to wait some time, this function also runs on start and getProject() is not ready yet.
+	// The location is retrived from "project" -> "mapsLocations" -> "name" for now,
+	// perhaps need a more user frendly option for that.
+setTimeout(() => {
+    runtime.project.getProject().then(async project => {
+        const locationName = project.mapsLocations?.[0]?.name;
 
-    periods.forEach(period => {
-        const { dayOfWeek, startTime, endTime } = period;
+        // Initialize Holidays with location
+        let hd;
+        if (locationName) {
+            hd = new Holidays(locationName);
+            console.log('Location name:', locationName);
+        } else {
+            hd = null; // Explicitly set to null if locationName missing
+            console.error('Error Location name not found in project');
+			holidayError = true;
+        }
 
-        const [startHour, startMinute] = startTime.split(':');
-        const startCron = `${startMinute} ${startHour} * * ${dayOfWeek}`;
-        const startJob = schedule.scheduleJob(startCron, async () => {
-			// On
-            console.log(`Started ON period for ${tagId} at ${moment().format('YYYY-MM-DD HH:mm:ss')} with value ${onValue}`);
-            try {
-                const success = await runtime.devices.setTagValue(tagId, onValue);
-                if (!success) {
-                    console.warn(`${tagId} could not be set to ${onValue}`);
+        // Example: Log holidays for 2025 (for debugging)
+        // console.log('Holidays:', hd.getHolidays(2025, { types: ['public', 'bank'] }));
+
+        const { tagId, periods, onValue, offValue, skippHolidays } = schedObj;
+
+        periods.forEach(period => {
+            const { dayOfWeek, startTime, endTime } = period;
+
+            const [startHour, startMinute] = startTime.split(':');
+            const startCron = `${startMinute} ${startHour} * * ${dayOfWeek}`;
+
+            const startJob = schedule.scheduleJob(startCron, async () => {
+                const today = new Date();
+
+                // Check if today is a holiday, only for 'public' and 'bank' holidays
+                const isHoliday = hd && skippHolidays
+                    ? hd.isHoliday(today, { types: ['public', 'bank'] }) // Filter by holiday type
+                    : false;
+
+                if (isHoliday) {
+                    console.log(`[SKIPPED] ${tagId} – It's a holiday (${today.toDateString()}), ON skipping.`);
+                    return;
                 }
-            } catch (err) {
-                console.error(`Error setting ${tagId} to ${onValue}:`, err);
-            }
-        });
-        jobs.push({ name: `${tagId}-start-${dayOfWeek}`, job: startJob });
 
-        const [endHour, endMinute] = endTime.split(':');
-        const endCron = `${endMinute} ${endHour} * * ${dayOfWeek}`;
-        const endJob = schedule.scheduleJob(endCron, async () => {
-			// Off
-            console.log(`Ended OFF period for ${tagId} at ${moment().format('YYYY-MM-DD HH:mm:ss')} with value ${offValue}`);
-            try {
-                const success = await runtime.devices.setTagValue(tagId, offValue);
-                if (!success) {
-                    console.warn(`${tagId} could not be set to ${offValue}`);
+                console.log(`Started ON period for ${tagId} at ${moment().format('YYYY-MM-DD HH:mm:ss')} with value ${onValue}`);
+                try {
+                    const success = await runtime.devices.setTagValue(tagId, onValue);
+                    if (!success) {
+                        console.warn(`${tagId} could not be set to ${onValue}`);
+                    }
+                } catch (err) {
+                    console.error(`Error setting ${tagId} to ${onValue}:`, err);
                 }
-            } catch (err) {
-                console.error(`Error setting ${tagId} to ${offValue}:`, err);
-            }
+            });
+
+            jobs.push({ name: `${tagId}-start-${dayOfWeek}`, job: startJob });
+
+            // OFF job
+            const [endHour, endMinute] = endTime.split(':');
+            const endCron = `${endMinute} ${endHour} * * ${dayOfWeek}`;
+
+            const endJob = schedule.scheduleJob(endCron, async () => {
+                console.log(`Ended OFF period for ${tagId} at ${moment().format('YYYY-MM-DD HH:mm:ss')} with value ${offValue}`);
+                try {
+                    const success = await runtime.devices.setTagValue(tagId, offValue);
+                    if (!success) {
+                        console.warn(`${tagId} could not be set to ${offValue}`);
+                    }
+                } catch (err) {
+                    console.error(`Error setting ${tagId} to ${offValue}:`, err);
+                }
+            });
+
+            jobs.push({ name: `${tagId}-end-${dayOfWeek}`, job: endJob });
         });
-        jobs.push({ name: `${tagId}-end-${dayOfWeek}`, job: endJob });
     });
+}, 2000);
 }
+
+
 
 /**
  * Apply current states based on schedule periods
@@ -170,7 +226,7 @@ function createApp() {
     commandApp.post('/api/schedules', secureFnc, async (req, res) => {
         if (!requireAdmin(req, res)) return;
 
-        const { tagId, name, periods, onValue, offValue, timeFormat } = req.body;
+        const { tagId, name, periods, onValue, offValue, timeFormat, skippHolidays } = req.body;
 
         if (!tagId || !Array.isArray(periods) || !onValue || !offValue || !timeFormat) {
             return res.status(400).json({ error: 'tagId, periods, onValue, offValue, and timeFormat are required' });
@@ -179,7 +235,7 @@ function createApp() {
         jobs = jobs.filter(job => !job.name.startsWith(tagId));
         schedules = schedules.filter(sch => sch.tagId !== tagId);
 
-        const newSchedule = { tagId, name: name || '', periods, onValue, offValue, timeFormat };
+        const newSchedule = { tagId, name: name || '', periods, onValue, offValue, timeFormat, skippHolidays };
         schedules.push(newSchedule);
         scheduleJobs(newSchedule);
         try {
@@ -197,7 +253,7 @@ function createApp() {
         if (!requireAdmin(req, res)) return;
 
         const tagId = req.params.tagId;
-        const { name, periods, onValue, offValue, timeFormat } = req.body;
+        const { name, periods, onValue, offValue, timeFormat, skippHolidays } = req.body;
 
         if (!Array.isArray(periods) || !onValue || !offValue || !timeFormat) {
             return res.status(400).json({ error: 'Invalid periods, onValue, offValue, or timeFormat format' });
@@ -206,7 +262,7 @@ function createApp() {
         jobs = jobs.filter(job => !job.name.startsWith(tagId));
         schedules = schedules.filter(s => s.tagId !== tagId);
 
-        const updatedSchedule = { tagId, name: name || '', periods, onValue, offValue, timeFormat };
+        const updatedSchedule = { tagId, name: name || '', periods, onValue, offValue, timeFormat, skippHolidays };
         schedules.push(updatedSchedule);
         scheduleJobs(updatedSchedule);
         try {
@@ -259,7 +315,7 @@ function createApp() {
 
                     return nowTime.isBetween(start, end, null, '[)');
                 });
-                return { ...s, isOn };
+                return { ...s, isOn, error: holidayError };
             });
 
             res.json(status);

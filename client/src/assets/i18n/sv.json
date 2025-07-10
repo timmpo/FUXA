@@ -1689,6 +1689,7 @@
     "msg.texts-text-remove": "Vill du ta bort texten '{{value}}'?",
     "msg.operation-unauthorized": "Operation obehörig!",
 	
+	"schedule-skip-holidays-label": "Ignorera helgdagar",
 	"schedule-tagName": "Taggnamn",
     "schedule-title": "Scheman",
     "schedule-actions": "Åtgärder",

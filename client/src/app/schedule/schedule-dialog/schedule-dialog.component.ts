@@ -11,6 +11,8 @@ interface Period {
 }
 
 interface ScheduleData {
+	error: boolean;
+    skippHolidays: boolean;
     tagId: string;
     name: string;
     periods: Period[];
@@ -25,9 +27,8 @@ interface ScheduleData {
     styleUrls: ['./schedule-dialog.component.css']
 })
 export class ScheduleDialogComponent {
-	// Option: Hide tag id
-	showTagId = false;
-	
+    // Option: Hide tag id
+    showTagId = false;
     formGroup: UntypedFormGroup;
     daysOfWeek: { value: string; name: string }[] = [];
     // Store non-editable fields to include in the submitted data
@@ -38,7 +39,7 @@ export class ScheduleDialogComponent {
         public dialogRef: MatDialogRef<ScheduleDialogComponent>,
         @Inject(MAT_LEGACY_DIALOG_DATA) public data: ScheduleData,
         private translateService: TranslateService,
-		private projectService: ProjectService
+        private projectService: ProjectService
     ) {
         this.scheduleData = data;
         this.daysOfWeek = [
@@ -51,7 +52,9 @@ export class ScheduleDialogComponent {
             { value: '0', name: this.translateService.instant('schedule-day-sunday') }
         ];
 
+        // Initialize formGroup with skippHolidays control
         this.formGroup = this.fb.group({
+            skippHolidays: [data.skippHolidays ?? false], // Default to false if undefined
             periods: this.fb.array([])
         });
 
@@ -61,12 +64,13 @@ export class ScheduleDialogComponent {
             this.addPeriod();
         }
     }
-	    // Lazy...
-	    getDeviceTagName(tagId: string): string {
+
+    // Lazy...
+    getDeviceTagName(tagId: string): string {
         console.log('tag name: ', this.projectService.getTagFromId(tagId)?.name);
         return this.projectService.getTagFromId(tagId)?.name || 'Unknown Tag';
     }
-	
+    
     get periods() {
         return this.formGroup.get('periods') as FormArray;
     }
@@ -142,6 +146,16 @@ export class ScheduleDialogComponent {
         this.dialogRef.close();
     }
 
+	ngOnInit() {
+			// Date-holiday module error or location not set
+			if (this.scheduleData.error) {
+				this.formGroup.get('skippHolidays')?.disable();
+			} else {
+				this.formGroup.get('skippHolidays')?.enable();
+			}
+		}
+
+
     onSave() {
         if (this.formGroup.valid) {
             // Convert times back to 24-hour format for submission
@@ -150,8 +164,9 @@ export class ScheduleDialogComponent {
                 startTime: this.parseTime(period.startTime),
                 endTime: this.parseTime(period.endTime)
             }));
-            // Include non-editable fields in the submitted data
+            // Include non-editable fields and skippHolidays in the submitted data
             const result = {
+                skippHolidays: this.formGroup.value.skippHolidays, // Use formGroup value
                 tagId: this.scheduleData.tagId,
                 name: this.scheduleData.name,
                 periods,

@@ -14,10 +14,11 @@ import { ProjectService } from '../_services/project.service';
 // We only want to use admin permissions to add a new schedule, not to show.
 // Time conversions: PM/AM time conversions need more testing.
 
-// Info
-// Wen running client mode we need to add http://localhost:1881 for the api connections below
+// Important !!! <-----------
+// Wen running client mode we need to add http://localhost:1881 for the api connections below <----------- 
 
 interface Schedule {
+    skippHolidays?: boolean;
     tagId: string;
     name: string;
     tagName?: string;
@@ -26,6 +27,7 @@ interface Schedule {
     onValue: string;
     offValue: string;
     timeFormat: '24h' | '12h';
+	error?: boolean;
 }
 
 @Component({
@@ -34,18 +36,17 @@ interface Schedule {
     styleUrls: ['./schedule.component.scss']
 })
 export class ScheduleComponent implements OnInit {
-
-		
     schedules: Schedule[] = [];
     displayedColumns: string[] = [
-	    'select',
-	    'name', 
-		'tagName', 
-		//'tagId', // Hide the tag id colum.. 
-		'periods', 
-		'status', 
-		'actions'
-	];
+        // 'skippHolidays', 
+        'select',
+        'name', 
+        'tagName', 
+        // 'tagId', // Hide the tag id colum.. 
+        'periods', 
+        'status', 
+        'actions'
+    ];
 
     constructor(
         private http: HttpClient,
@@ -53,13 +54,13 @@ export class ScheduleComponent implements OnInit {
         private translateService: TranslateService,
         private authService: AuthService,
         private projectService: ProjectService,
-		private toastNotifier: ToastNotifierService
+        private toastNotifier: ToastNotifierService
     ) {
         console.log('MatDialog:', this.dialog);
     }
 
     getDeviceTagName(tagId: string): string {
-        console.log('tag name: ', this.projectService.getTagFromId(tagId)?.name);
+        //console.log('tag name: ', this.projectService.getTagFromId(tagId)?.name);
         return this.projectService.getTagFromId(tagId)?.name || 'Unknown Tag';
     }
 
@@ -69,7 +70,7 @@ export class ScheduleComponent implements OnInit {
     }
 
     ngOnInit() {
-		// Permission check (only for remind user if not admin)
+        // Permission check (only for remind user if not admin)
         const context = {
             permission: 2056 // show and edit group 3 ? 
         };
@@ -83,8 +84,8 @@ export class ScheduleComponent implements OnInit {
             this.toastNotifier.notifyError(this.translateService.instant('msg.operation-unauthorized'));
             return;
         }
-		// Permission pass move on..
-		
+        // Permission pass move on..
+        
         this.loadSchedules();
     }
 
@@ -99,8 +100,9 @@ export class ScheduleComponent implements OnInit {
     }
 
     loadSchedules() {
-        this.http.get<Schedule[]>('http://localhost:1881/api/schedules').subscribe({
+        this.http.get<Schedule[]>('/api/schedules').subscribe({
             next: (schedules) => {
+                console.log(schedules);
                 this.schedules = schedules;
             },
             error: (err) => console.error('Error loading schedules:', err)
@@ -108,7 +110,7 @@ export class ScheduleComponent implements OnInit {
     }
 
     openAddScheduleDialog() {
-		// Permission check
+        // Permission check
         const context = {
             permission: 2056 // show and edit group 3 ? 
         };
@@ -122,12 +124,13 @@ export class ScheduleComponent implements OnInit {
             this.toastNotifier.notifyError(this.translateService.instant('msg.operation-unauthorized')); //alert('No permission, log on as admin');
             return;
         }
-		// Permission pass move on..
-		
+        // Permission pass move on..
+        
         // Open the dialog and pass the isReadonly flag based on whether enabled is false.
         const dialogRef = this.dialog.open(AddScheduleDialogComponent, {
             width: '600px',
-            data: { 
+            data: {
+                skippHolidays: false,
                 tagId: '', 
                 name: '', 
                 periods: [], 
@@ -146,7 +149,7 @@ export class ScheduleComponent implements OnInit {
 
             // Only save if the user has edit permissions.
             if (result && permission.enabled) {
-                this.http.post('http://localhost:1881/api/schedules', result).subscribe({
+                this.http.post('/api/schedules', result).subscribe({
                     next: () => this.loadSchedules(),
                     error: (err) => console.error('Error saving schedule:', err)
                 });
@@ -160,6 +163,8 @@ export class ScheduleComponent implements OnInit {
         const dialogRef = this.dialog.open(ScheduleDialogComponent, {
             width: '600px',
             data: {
+				error: schedule.error,
+                skippHolidays: schedule.skippHolidays ?? false, // Ensure defined
                 tagId: schedule.tagId,
                 name: schedule.name,
                 periods: schedule.periods,
@@ -172,7 +177,7 @@ export class ScheduleComponent implements OnInit {
 
         dialogRef.afterClosed().subscribe(result => {
             if (result) {
-                this.http.put(`http://localhost:1881/api/schedules/${schedule.tagId}`, result).subscribe({
+                this.http.put(`/api/schedules/${schedule.tagId}`, result).subscribe({
                     next: () => this.loadSchedules(),
                     error: (err) => console.error('Error updating schedule:', err)
                 });

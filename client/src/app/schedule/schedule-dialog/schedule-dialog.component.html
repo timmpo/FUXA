@@ -5,9 +5,9 @@
     <div style="margin-bottom: 20px;">
         <div><strong>{{ 'schedule-name-label' | translate }}:</strong> {{ data.name }}</div>
         <div *ngIf="showTagId"><strong>{{ 'schedule-tagId-label' | translate }}:</strong> {{ data.tagId }}</div>
-		<div><strong>{{ 'schedule-tagName' | translate }}:</strong> {{ getDeviceTagName( data.tagId) }}</div>
+        <div><strong>{{ 'schedule-tagName' | translate }}:</strong> {{ getDeviceTagName(data.tagId) }}</div>
     </div>
-
+    
     <form [formGroup]="formGroup">
         <!-- Periods -->
         <div formArrayName="periods">
@@ -66,10 +66,17 @@
                 </button>
             </div>
         </div>
-
         <button mat-raised-button color="primary" (click)="addPeriod()">
             {{ 'schedule-add-period' | translate }}
         </button>
+        <!-- Skip holidays toggle -->
+		<div class="my-form-field ml20">
+			<span>{{ 'schedule-skip-holidays-label' | translate }}</span>
+			<mat-slide-toggle
+				color="primary"
+				formControlName="skippHolidays">
+			</mat-slide-toggle>
+		</div>
     </form>
 </mat-dialog-content>
 
