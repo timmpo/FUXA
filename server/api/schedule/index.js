@@ -29,7 +29,6 @@ var checkGroupsFnc;
 
 let schedules = [];
 let jobs = [];
-
 //var utils = require('../../runtime/utils');
 
 /**
@@ -38,6 +37,8 @@ let jobs = [];
 async function loadSchedules() {
     try {
         schedules = await runtime.project.getSchedules();
+		//locationZ = await runtime.project.getProject();
+		//console.log(locationZ);
         console.log('Loaded schedules from project storage:', schedules);
         schedules.forEach(scheduleJobs);
     } catch (err) {
@@ -45,6 +46,7 @@ async function loadSchedules() {
         schedules = [];
     }
 }
+
 
 /**
  * Save schedules to FUXA project storage
@@ -62,99 +64,142 @@ async function saveSchedules() {
     }
 }
 
+
 /**
  * Schedule jobs for a given schedule object
  * @param {Object} schedObj - The schedule object
  */
+ 
+// Function to schedule jobs and apply current states
 function scheduleJobs(schedObj) {
     if (!runtime) {
         console.error('Error Schedule runtime not initialized!');
         return;
     }
 
-    // We need to wait some time, this function also runs on start and getProject() is not ready yet.
-	// The location is retrived from "project" -> "mapsLocations" -> "name" for now,
-	// perhaps need a more user frendly option for that.
-setTimeout(() => {
-    runtime.project.getProject().then(async project => {
-        const locationName = project.mapsLocations?.[0]?.name;
+    // Not so elegant solution, we need to wait some time, this function also runs on start and getProject() is not ready yet
+    // The location is retrieved from "project" -> "mapsLocations" -> "name" for now,
+    // perhaps need a more user-friendly option for that.
+    setTimeout(() => {
 
-        // Initialize Holidays with location
-        let hd;
-        if (locationName) {
-            hd = new Holidays(locationName);
-            console.log('Location name:', locationName);
-        } else {
-            hd = null; // Explicitly set to null if locationName missing
-            console.error('Error Location name not found in project');
-			holidayError = true;
-        }
+        runtime.project.getProject().then(async project => {
+            const locationName = project.mapsLocations?.[0]?.name;
+			
+            // Initialize Holidays with location
+            let hd;
+            if (locationName) {
+				try {
+					const hd = new Holidays(locationName);
+					console.log('Date-holiday country:', hd.getCountries()[locationName]);
+					console.log('Date-holiday language:', hd.getLanguages());
+				} catch (error) {
+					console.warn('[WARNING] Could not load date holidays - holiday check disabled.');
+					holidayError = true;
+				}
+            } else {
+                hd = null; // Explicitly set to null if locationName missing
+                console.error('Error Location name not found in project');
+                holidayError = true; // For disable the frontend togle button
+            }
+			
+			const today = new Date();
+			//const today = new Date(1744971830000)
+            // Example: Log holidays for 2025 (for debugging)
+            // console.log('Holidays:', hd.getHolidays(2025, { types: ['public', 'bank'] }));
 
-        // Example: Log holidays for 2025 (for debugging)
-        // console.log('Holidays:', hd.getHolidays(2025, { types: ['public', 'bank'] }));
+            const { tagId, periods, onValue, offValue, skippHolidays } = schedObj;
+			
+			// Check if today is a holiday, only for 'public' and 'bank' holidays
+			const isHoliday = hd && skippHolidays
+				? hd.isHoliday(today, { types: ['public', 'bank'] }) // Filter by holiday type
+				: false;
 
-        const { tagId, periods, onValue, offValue, skippHolidays } = schedObj;
+            // Schedule jobs
+            periods.forEach(period => {
+                const { dayOfWeek, startTime, endTime } = period;
 
-        periods.forEach(period => {
-            const { dayOfWeek, startTime, endTime } = period;
+                const [startHour, startMinute] = startTime.split(':');
+                const startCron = `${startMinute} ${startHour} * * ${dayOfWeek}`;
 
-            const [startHour, startMinute] = startTime.split(':');
-            const startCron = `${startMinute} ${startHour} * * ${dayOfWeek}`;
+                const startJob = schedule.scheduleJob(startCron, async () => {
 
-            const startJob = schedule.scheduleJob(startCron, async () => {
-                const today = new Date();
-
-                // Check if today is a holiday, only for 'public' and 'bank' holidays
-                const isHoliday = hd && skippHolidays
-                    ? hd.isHoliday(today, { types: ['public', 'bank'] }) // Filter by holiday type
-                    : false;
-
-                if (isHoliday) {
-                    console.log(`[SKIPPED] ${tagId} – It's a holiday (${today.toDateString()}), ON skipping.`);
-                    return;
-                }
-
-                console.log(`Started ON period for ${tagId} at ${moment().format('YYYY-MM-DD HH:mm:ss')} with value ${onValue}`);
-                try {
-                    const success = await runtime.devices.setTagValue(tagId, onValue);
-                    if (!success) {
-                        console.warn(`${tagId} could not be set to ${onValue}`);
+                    if (isHoliday) {
+                        console.log(`[SKIPPED] ${tagId} – It's a holiday (${today.toDateString()}), ON skipping.`);
+                        return;
                     }
-                } catch (err) {
-                    console.error(`Error setting ${tagId} to ${onValue}:`, err);
-                }
+
+                    console.log(`Started ON period for ${tagId} at ${moment().format('YYYY-MM-DD HH:mm:ss')} with value ${onValue}`);
+                    try {
+                        const success = await runtime.devices.setTagValue(tagId, onValue);
+                        if (!success) {
+                            console.warn(`${tagId} could not be set to ${onValue}`);
+                        }
+                    } catch (err) {
+                        console.error(`Error setting ${tagId} to ${onValue}:`, err);
+                    }
+                });
+
+                jobs.push({ name: `${tagId}-start-${dayOfWeek}`, job: startJob });
+
+                // OFF job
+                const [endHour, endMinute] = endTime.split(':');
+                const endCron = `${endMinute} ${endHour} * * ${dayOfWeek}`;
+
+                const endJob = schedule.scheduleJob(endCron, async () => {
+                    console.log(`Ended OFF period for ${tagId} at ${moment().format('YYYY-MM-DD HH:mm:ss')} with value ${offValue}`);
+                    try {
+                        const success = await runtime.devices.setTagValue(tagId, offValue);
+                        if (!success) {
+                            console.warn(`${tagId} could not be set to ${offValue}`);
+                        }
+                    } catch (err) {
+                        console.error(`Error setting ${tagId} to ${offValue}:`, err);
+                    }
+                });
+
+                jobs.push({ name: `${tagId}-end-${dayOfWeek}`, job: endJob });
             });
 
-            jobs.push({ name: `${tagId}-start-${dayOfWeek}`, job: startJob });
+            // Apply current states
+            const now = moment();
+            const isOn = periods.some(p => {
+                const today = now.day();
+                if (parseInt(p.dayOfWeek) !== today) return false;
 
-            // OFF job
-            const [endHour, endMinute] = endTime.split(':');
-            const endCron = `${endMinute} ${endHour} * * ${dayOfWeek}`;
+                const start = moment(p.startTime, 'HH:mm');
+                const end = moment(p.endTime, 'HH:mm');
+                const nowTime = moment(now.format('HH:mm'), 'HH:mm');
 
-            const endJob = schedule.scheduleJob(endCron, async () => {
-                console.log(`Ended OFF period for ${tagId} at ${moment().format('YYYY-MM-DD HH:mm:ss')} with value ${offValue}`);
-                try {
-                    const success = await runtime.devices.setTagValue(tagId, offValue);
-                    if (!success) {
-                        console.warn(`${tagId} could not be set to ${offValue}`);
-                    }
-                } catch (err) {
-                    console.error(`Error setting ${tagId} to ${offValue}:`, err);
-                }
+                return nowTime.isBetween(start, end);
             });
 
-            jobs.push({ name: `${tagId}-end-${dayOfWeek}`, job: endJob });
+			try {
+				if (isOn && isHoliday) {
+					console.log(`Skipped setting ${tagId} to ON because it's a holiday`);
+					return;
+				}
+
+				const value = isOn ? onValue : offValue;
+
+				const success = await runtime.devices.setTagValue(tagId, value);
+				if (success) {
+					console.log(`Set ${tagId} to ${value} based on current time`);
+				} else {
+					console.warn(`Could not set ${tagId} to ${value}`);
+				}
+			} catch (err) {
+				console.error(`Error setting ${tagId} to ${value}:`, err);
+			}
         });
-    });
-}, 2000);
+    }, 2000);
 }
 
 
-
 /**
- * Apply current states based on schedule periods
+ * Apply current states based on schedule periods (Moved) 
  */
-async function applyCurrentStates() {
+ 
+/* async function applyCurrentStates() {
     if (!runtime) {
         console.error('Runtime not initialized!');
         return;
@@ -186,7 +231,7 @@ async function applyCurrentStates() {
             console.error(`Error setting ${tagId} to ${value}:`, err);
         }
     }
-}
+} */
 
 /**
  * Create Express app for schedule endpoints
@@ -240,7 +285,7 @@ function createApp() {
         scheduleJobs(newSchedule);
         try {
             await saveSchedules();
-            await applyCurrentStates();
+            //await applyCurrentStates();
             res.json({ message: 'Schedule created', schedule: newSchedule });
         } catch (err) {
             res.status(500).json({ error: 'server_error', message: err.message });
@@ -267,7 +312,7 @@ function createApp() {
         scheduleJobs(updatedSchedule);
         try {
             await saveSchedules();
-            await applyCurrentStates();
+            //await applyCurrentStates();
             res.json({ message: 'Schedule updated', schedule: updatedSchedule });
         } catch (err) {
             res.status(500).json({ error: 'server_error', message: err.message });
@@ -335,11 +380,11 @@ module.exports = {
         checkGroupsFnc = _checkGroupsFnc;
 
         await loadSchedules();
-
+		//await loadLocation();
         // Wait some time before loading tags
-        setTimeout(async () => {
-            await applyCurrentStates();
-        }, 5000); // ms delay
+        //setTimeout(async () => {
+            //await applyCurrentStates();
+        //}, 5000); // ms delay
     },
     app: createApp
 };
