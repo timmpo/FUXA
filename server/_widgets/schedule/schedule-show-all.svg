@@ -1,0 +1,259 @@
+<svg id="weeklyScheduleWidget" xmlns="http://www.w3.org/2000/svg" width="728" height="500">
+  <style>
+    text { font-family: Arial, sans-serif; font-size: 14px; fill: #333; }
+    .header { font-weight: bold; font-size: 16px; fill: #000; }
+    .table-row { cursor: pointer; }
+    .table-row:hover text { fill: #0055cc; }
+    .input-field { font-size: 12px; width: 90px; height: 25px; border: 1px solid #ccc; border-radius: 4px; padding: 2px; }
+    .save-btn { font-size: 14px; width: 100px; height: 30px; background-color: #28a745; color: white; border: none; border-radius: 4px; cursor: pointer; }
+    .save-btn:hover { background-color: #218838; }
+    .popup-save-btn { font-size: 14px; width: 80px; height: 30px; background-color: #28a745; color: white; border: none; border-radius: 4px; cursor: pointer; margin-right: 10px; }
+    .popup-save-btn:hover { background-color: #218838; }
+    .close-btn { font-size: 14px; width: 80px; height: 30px; background-color: #dc3545; color: white; border: none; border-radius: 4px; cursor: pointer; }
+    .close-btn:hover { background-color: #c82333; }
+    .error { font-size: 12px; fill: red; }
+    .loading { font-size: 14px; fill: #666; }
+    .debug { font-size: 12px; fill: blue; }
+    rect.background { fill: #f5f5f5; }
+    rect.header-bg { fill: #e0e0e0; stroke: #ccc; stroke-width: 1; }
+    rect.popup-bg { fill: #ffffff; stroke: #ccc; stroke-width: 1; }
+    .overlay { fill: rgba(0, 0, 0, 0.5); }
+    .odd { fill: #f9f9f9; }
+    .even { fill: #ffffff; }
+	.overlay { fill: #ffffff00; }
+  </style>
+
+  <rect class="background" x="0" y="0" width="728" height="500" />
+  <rect class="header-bg" x="10" y="10" width="708" height="40" />
+  <text id="titleText" x="20" y="35" class="header"></text>
+
+  <rect class="header-bg" x="10" y="60" width="708" height="30" />
+  <text id="headerName" x="20" y="80" class="header"></text>
+  <text id="headerPeriods" x="200" y="80" class="header"></text>
+  <text id="headerStatus" x="300" y="80" class="header"></text>
+
+  <text id="loadingMsg" x="20" y="120" class="loading"></text>
+  <text id="debugMsg" x="20" y="460" class="debug"></text>
+  <text id="errorMsg" x="20" y="480" class="error"></text>
+  <g id="scheduleTable" />
+
+  <rect id="overlay" class="overlay" x="0" y="0" width="728" height="500" opacity="0" pointer-events="none" />
+  <g id="popup" opacity="0" pointer-events="none">
+    <rect class="popup-bg" x="100" y="100" width="400" height="370" rx="10" />
+    <text id="popupTitle" x="110" y="130" font-size="16" fill="#000" font-weight="bold"></text>
+    <g id="popupContent" />
+    <foreignObject x="250" y="430" width="200" height="40">
+      <div xmlns="http://www.w3.org/1999/xhtml" style="display: flex; justify-content: flex-end; gap: 10px;">
+        <button id="popupSaveBtn" class="popup-save-btn"></button>
+        <button id="popupCloseBtn" class="close-btn"></button>
+      </div>
+    </foreignObject>
+  </g>
+
+ <script type="application/ecmascript">
+<![CDATA[
+
+  const apiBaseUrl = '';
+  const userLang = (navigator.language || 'en').split('-')[0]; // e.g. 'sv', 'en'
+  let currentLang = userLang;
+  let translations = {};
+
+  // Debug logging
+  function debugLog(message) {
+    console.log(`[WeeklyScheduleWidget ${new Date().toISOString()}]: ${message}`);
+  }
+
+  // Translate key using loaded translations, fallback to key itself
+  function translate(key) {
+    return translations[key] || key;
+  }
+
+  // Load translation file based on language
+  function loadTranslations(lang) {
+    const url = `/assets/i18n/${lang}.json`;
+    return fetch(url)
+      .then(res => {
+        if (!res.ok) throw new Error(`Translation file not found: ${lang}`);
+        return res.json();
+      })
+      .then(data => {
+        translations = data;
+        currentLang = lang;
+        debugLog(`Loaded translations for "${lang}"`);
+      })
+      .catch(err => {
+        console.warn(`Failed to load "${lang}" translations:`, err.message);
+        if (lang !== 'en') {
+          return loadTranslations('en'); // fallback to English
+        }
+      });
+  }
+
+  // Display error message to user
+  function displayError(message) {
+    const errorText = document.getElementById('errorMsg');
+    if (errorText) errorText.textContent = message;
+    setTimeout(() => { if (errorText) errorText.textContent = ''; }, 5000);
+  }
+
+  // Display debug message
+  function displayDebug(message) {
+    const debugText = document.getElementById('debugMsg');
+    if (debugText) debugText.textContent = message;
+    setTimeout(() => { if (debugText) debugText.textContent = ''; }, 10000);
+  }
+
+  // Fetch schedule data from API
+  function fetchSchedules() {
+    const loadingText = document.getElementById('loadingMsg');
+    loadingText.textContent = translate('schedule-loading');
+    fetch(`${apiBaseUrl}/api/schedules`, { credentials: 'include' })
+      .then(res => res.json())
+      .then(data => renderScheduleTable(data))
+      .catch(err => displayError(`${translate('schedule-error')}${err.message}`))
+      .finally(() => { loadingText.textContent = ''; });
+  }
+
+  // Render schedule rows into SVG
+  function renderScheduleTable(schedules) {
+    const container = document.getElementById('scheduleTable');
+    container.innerHTML = '';
+    let yOffset = 110;
+    schedules.forEach((schedule, index) => {
+      const group = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+      group.setAttribute('class', 'table-row');
+
+      const bgRect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+      bgRect.setAttribute('x', '10');
+      bgRect.setAttribute('y', yOffset - 5);
+      bgRect.setAttribute('width', '708');
+      bgRect.setAttribute('height', '35');
+      bgRect.setAttribute('class', index % 2 === 0 ? 'even' : 'odd');
+      group.appendChild(bgRect);
+
+      const nameText = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+      nameText.setAttribute('x', '20');
+      nameText.setAttribute('y', yOffset + 15);
+      nameText.textContent = schedule.name || 'Namnlös';
+      group.appendChild(nameText);
+
+      const periodsText = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+      periodsText.setAttribute('x', '200');
+      periodsText.setAttribute('y', yOffset + 15);
+      periodsText.textContent = schedule.periods.length;
+      group.appendChild(periodsText);
+
+      const statusText = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+      statusText.setAttribute('x', '300');
+      statusText.setAttribute('y', yOffset + 15);
+      statusText.textContent = schedule.isOn ? translate('schedule-status-on') : translate('schedule-status-off');
+      group.appendChild(statusText);
+
+      group.addEventListener('click', () => showPopup(schedule));
+      container.appendChild(group);
+      yOffset += 40;
+    });
+  }
+
+  // Display popup for editing schedule
+  function showPopup(schedule) {
+    const popup = document.getElementById('popup');
+    const popupTitle = document.getElementById('popupTitle');
+    const popupContent = document.getElementById('popupContent');
+    const saveBtn = document.getElementById('popupSaveBtn');
+    const closeBtn = document.getElementById('popupCloseBtn');
+    const svgNs = 'http://www.w3.org/2000/svg';
+    const xhtmlNs = 'http://www.w3.org/1999/xhtml';
+
+    popupTitle.textContent = `${schedule.name}`;
+    saveBtn.textContent = translate('schedule-save');
+    closeBtn.textContent = translate('schedule-cancel');
+    popupContent.innerHTML = '';
+
+    const days = [
+      translate('schedule-day-sunday'), translate('schedule-day-monday'), translate('schedule-day-tuesday'),
+      translate('schedule-day-wednesday'), translate('schedule-day-thursday'), translate('schedule-day-friday'),
+      translate('schedule-day-saturday')
+    ];
+
+    let yOffset = 160;
+
+    schedule.periods.forEach((period, index) => {
+      const dayText = document.createElementNS(svgNs, 'text');
+      dayText.setAttribute('x', '110');
+      dayText.setAttribute('y', yOffset);
+      dayText.setAttribute('fill', '#000');
+      dayText.textContent = days[parseInt(period.dayOfWeek)] || 'Invalid';
+      popupContent.appendChild(dayText);
+
+      const createTimeInput = (type, value) => {
+        const fo = document.createElementNS(svgNs, 'foreignObject');
+        fo.setAttribute('x', type === 'start' ? '250' : '350');
+        fo.setAttribute('y', yOffset - 15);
+        fo.setAttribute('width', '90');
+        fo.setAttribute('height', '25');
+        const input = document.createElementNS(xhtmlNs, 'input');
+        input.setAttribute('type', 'time');
+        input.setAttribute('class', 'input-field');
+        input.value = value || '';
+        input.addEventListener('input', (event) => {
+          schedule.periods[index][type + 'Time'] = event.target.value;
+        });
+        fo.appendChild(input);
+        return fo;
+      };
+
+      popupContent.appendChild(createTimeInput('start', period.startTime));
+      popupContent.appendChild(createTimeInput('end', period.endTime));
+      yOffset += 40;
+    });
+
+    document.getElementById('overlay').setAttribute('opacity', '1');
+    popup.setAttribute('opacity', '1');
+    popup.setAttribute('pointer-events', 'auto');
+
+    saveBtn.onclick = () => savePopupChanges(schedule);
+    closeBtn.onclick = () => hidePopup();
+  }
+
+  // Hide popup
+  function hidePopup() {
+    document.getElementById('overlay').setAttribute('opacity', '0');
+    const popup = document.getElementById('popup');
+    popup.setAttribute('opacity', '0');
+    popup.setAttribute('pointer-events', 'none');
+  }
+
+  // Save edited schedule to API
+  function savePopupChanges(schedule) {
+    fetch(`${apiBaseUrl}/api/schedules/${schedule.tagId}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify(schedule)
+    })
+    .then(res => {
+      if (!res.ok) throw new Error(`HTTP error ${res.status}`);
+      return res.json();
+    })
+    .then(() => {
+      displayError(translate('schedule-saved'));
+      hidePopup();
+      fetchSchedules();
+    })
+    .catch(err => displayError(`${translate('schedule-error')}${err.message}`));
+  }
+
+  // === Initialization ===
+  loadTranslations(userLang).then(() => {
+    document.getElementById('titleText').textContent = translate('schedule-title');
+    document.getElementById('headerName').textContent = translate('schedule-name');
+    document.getElementById('headerPeriods').textContent = translate('schedule-periods');
+    document.getElementById('headerStatus').textContent = translate('schedule-status');
+    fetchSchedules();
+  });
+
+]]>
+</script>
+
+</svg>

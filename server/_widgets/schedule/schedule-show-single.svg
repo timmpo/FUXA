@@ -1,0 +1,258 @@
+<svg id="weeklyScheduleWidgetSingle" xmlns="http://www.w3.org/2000/svg" width="728" height="500">
+  <style>
+    text { font-family: Arial, sans-serif; fill: #333; }
+    .header { font-size: 16px; font-weight: bold; }
+    .column-header { font-size: 14px; font-weight: bold; }
+    .save-btn { font-size: 14px; padding: 8px 16px; background-color: #007bff; color: white; border: none; border-radius: 5px; cursor: pointer; display: flex; align-items: center; gap: 5px; }
+    .save-btn:hover { background-color: #0056b3; }
+    .input-field { font-size: 14px; width: 80px; border: 1px solid #ccc; border-radius: 4px; padding: 2px; }
+    .row-odd { fill: #f5f5f5; }
+    .row-even { fill: #fff; }
+    .error-bg { fill: #ffe6e6; }
+  </style>
+
+  <!-- Border -->
+  <rect x="0" y="0" width="370" height="410" stroke="#ccc" stroke-width="1" fill="none" />
+
+  <!-- Background -->
+  <rect x="0" y="0" width="370" height="410" fill="#f9f9f9" />
+
+  <!-- Header -->
+  <rect x="10" y="10" width="340" height="30" fill="#eeeeee"></rect>
+  <text x="20" y="30" font-size="16" class="header" fill="black"></text>
+
+  <!-- Column headers -->
+  <text x="155" y="30" font-size="14" class="column-header" fill="black"></text>
+  <text x="265" y="30" font-size="14" class="column-header" fill="black"></text>
+
+  <!-- Schedule display area -->
+  <g id="scheduleArea" />
+
+  <script type="application/ecmascript">
+  <![CDATA[
+    // Global Parameters and Variables
+    //!export-start
+    let _ps_tagId = 't_a3599259-20754893'; // Default value, can be bound in Fuxa
+    //!export-end
+    let tagId = _ps_tagId; // Initialize with export variable
+    let translations = {}; // Object to store translations
+    let currentLang = (navigator.language || 'en').split('-')[0]; // Get browser language, e.g., 'sv' or 'en'
+
+    // Function to load translations from JSON file
+    function loadTranslations(lang) {
+      const url = `/assets/i18n/${lang}.json`;
+      return fetch(url, { credentials: 'include' })
+        .then(res => {
+          if (!res.ok) throw new Error(`Failed to load translations for ${lang}`);
+          return res.json();
+        })
+        .then(data => {
+          translations = data;
+          currentLang = lang;
+          console.log(`Loaded translations for "${lang}"`);
+          // Update interface after translations are loaded
+          updateInterface();
+          fetchSchedule();
+        })
+        .catch(err => {
+          console.warn(`Failed to load "${lang}" translations: ${err.message}`);
+          if (lang !== 'en') {
+            return loadTranslations('en'); // Fallback to English
+          } else {
+            showErrorMessage('Failed to load translations');
+          }
+        });
+    }
+
+    // Function to translate keys
+    function translate(key) {
+      return translations[key] || key; // Return translation or key as fallback
+    }
+
+    // Function to update interface with translations
+    function updateInterface() {
+      const titleText = document.querySelector('text');
+      titleText.textContent = ''; // Placeholder, will be set by schedule name in fetchSchedule
+
+      // Update column headers
+      const onText = document.querySelectorAll('text')[1];
+      onText.textContent = translate('schedule-status-on');
+      const offText = document.querySelectorAll('text')[2];
+      offText.textContent = translate('schedule-status-off');
+    }
+
+    // Function to receive values from Fuxa
+    function putValue(id, value) {
+      if (id === '_ps_tagId') {
+        tagId = value; // Update tagId when Fuxa sends a new value
+        fetchSchedule(); // Reload schedule with new tagId
+      }
+    }
+
+    // Placeholder for sending values to Fuxa
+    function postValue(id, value) {
+      console.error('Not defined!');
+    }
+
+    // Function to fetch schedule data
+    function fetchSchedule() {
+      const container = document.getElementById('scheduleArea');
+      container.innerHTML = ''; // Clear previous content
+
+      fetch('/api/schedules', { credentials: 'include' })
+        .then(res => res.json())
+        .then(data => {
+          const schedule = data.find(s => s.tagId === tagId);
+          if (!schedule) {
+            showErrorMessage(translate('schedule-notFound'));
+            return;
+          }
+          updateScheduleDisplay(schedule);
+        })
+        .catch(err => {
+          showErrorMessage(translate('schedule-error'));
+          console.error('Error fetching schedule:', err);
+        });
+    }
+
+    // Function to display error message in widget
+    function showErrorMessage(message) {
+      const container = document.getElementById('scheduleArea');
+      container.innerHTML = '';
+      const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+      rect.setAttribute('x', 15);
+      rect.setAttribute('y', 45);
+      rect.setAttribute('width', 300);
+      rect.setAttribute('height', 30);
+      rect.setAttribute('class', 'error-bg');
+      container.appendChild(rect);
+      const errorText = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+      errorText.setAttribute('x', 20);
+      errorText.setAttribute('y', 60);
+      errorText.setAttribute('font-size', '14');
+      errorText.setAttribute('fill', 'red'); // Red text for error message
+      errorText.textContent = message;
+      container.appendChild(errorText);
+      setTimeout(() => { container.innerHTML = ''; fetchSchedule(); }, 5000);
+    }
+
+    // Function to update schedule display
+    function updateScheduleDisplay(schedule) {
+      const container = document.getElementById('scheduleArea');
+      container.innerHTML = ''; // Clear previous content, including any error messages
+
+      // Translated days
+      const days = [
+        translate('schedule-day-sunday'),
+        translate('schedule-day-monday'),
+        translate('schedule-day-tuesday'),
+        translate('schedule-day-wednesday'),
+        translate('schedule-day-thursday'),
+        translate('schedule-day-friday'),
+        translate('schedule-day-saturday')
+      ];
+
+      // Header with schedule name
+      const titleText = document.querySelector('text');
+      titleText.textContent = schedule.name || translate('schedule-editTitle'); // Use schedule name or fallback
+
+      // Column headers for On/Off
+      const onText = document.querySelectorAll('text')[1];
+      onText.textContent = translate('schedule-status-on');
+      const offText = document.querySelectorAll('text')[2];
+      offText.textContent = translate('schedule-status-off');
+
+      schedule.periods.forEach((p, i) => {
+        const y = 80 + i * 40; // Increased y to give more space
+        const isOdd = i % 2 === 0;
+
+        // Row background
+        const rowRect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+        rowRect.setAttribute('x', 10);
+        rowRect.setAttribute('y', y - 35);
+        rowRect.setAttribute('width', 340);
+        rowRect.setAttribute('height', 40);
+        rowRect.setAttribute('class', isOdd ? 'row-odd' : 'row-even');
+        container.appendChild(rowRect);
+
+        // Day text
+        const dayText = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+        dayText.setAttribute('x', 20);
+        dayText.setAttribute('y', y - 13);
+        dayText.setAttribute('font-size', '14');
+        dayText.setAttribute('fill', 'black');
+        dayText.textContent = days[parseInt(p.dayOfWeek)];
+        container.appendChild(dayText);
+
+        // Start time input
+        const startInput = document.createElementNS('http://www.w3.org/2000/svg', 'foreignObject');
+        startInput.setAttribute('x', 150);
+        startInput.setAttribute('y', y - 29);
+        startInput.setAttribute('width', 90);
+        startInput.setAttribute('height', 30);
+        startInput.innerHTML = `<input xmlns="http://www.w3.org/1999/xhtml" type="time" value="${p.startTime}" data-index="${i}" data-type="start" class="input-field" />`;
+        container.appendChild(startInput);
+
+        // End time input
+        const endInput = document.createElementNS('http://www.w3.org/2000/svg', 'foreignObject');
+        endInput.setAttribute('x', 260);
+        endInput.setAttribute('y', y - 29);
+        endInput.setAttribute('width', 90);
+        endInput.setAttribute('height', 30);
+        endInput.innerHTML = `<input xmlns="http://www.w3.org/1999/xhtml" type="time" value="${p.endTime}" data-index="${i}" data-type="end" class="input-field" />`;
+        container.appendChild(endInput);
+      });
+
+      // Save button with translation and styling
+      const saveButton = document.createElementNS('http://www.w3.org/2000/svg', 'foreignObject');
+      saveButton.setAttribute('x', 20);
+      saveButton.setAttribute('y', 80 + schedule.periods.length * 40);
+      saveButton.setAttribute('width', 150);
+      saveButton.setAttribute('height', 35);
+      saveButton.innerHTML = `<button xmlns="http://www.w3.org/1999/xhtml" class="save-btn">💾 ${translate('schedule-save')}</button>`;
+      container.appendChild(saveButton);
+
+      // Click: save changes
+      saveButton.querySelector('button').addEventListener('click', () => {
+        const inputs = container.querySelectorAll('input');
+        inputs.forEach(input => {
+          const index = parseInt(input.getAttribute('data-index'));
+          const type = input.getAttribute('data-type');
+          schedule.periods[index][type + 'Time'] = input.value;
+        });
+
+        fetch(`/api/schedules/${tagId}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify(schedule)
+        })
+          .then(res => res.json())
+          .then(() => {
+            showErrorMessage(translate('schedule-saved')); // Show success message
+            fetchSchedule(); // Reload schedule
+          })
+          .catch(err => {
+            showErrorMessage(translate('schedule-error'));
+            console.error('Error saving schedule:', err);
+          });
+      });
+    }
+
+    // Initialization: Load translations and start
+    loadTranslations(currentLang);
+
+    // Cleanup when widget is removed
+    const observer = new MutationObserver((mutations) => {
+      mutations.forEach(m => {
+        m.removedNodes.forEach(node => {
+          if (node.id === 'weeklyScheduleWidgetSingle') {
+            observer.disconnect();
+          }
+        });
+      });
+    });
+    observer.observe(document.body, { childList: true, subtree: true });
+  ]]>
+  </script>
+</svg>
