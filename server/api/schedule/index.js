@@ -249,106 +249,134 @@ function createApp() {
     });
 
     // Helper function: Check admin permission
-    function requireAdmin(req, res) {
-        const permission = checkGroupsFnc(req);
+    // function requireAdmin(req, res) {
+        // const permission = checkGroupsFnc(req);
 
-        if (res.statusCode === 403) {
-            runtime.logger.error("Token expired");
-            res.status(403).json({ error: "token_expired", message: "Token expired" });
-            return false;
-        }
+        // if (res.statusCode === 403) {
+            // runtime.logger.error("Token expired");
+            // res.status(403).json({ error: "token_expired", message: "Token expired" });
+            // return false;
+        // }
 
-        if (!authJwt.haveAdminPermission(permission)) {
-            runtime.logger.error("Unauthorized access");
-            res.status(401).json({ error: "unauthorized_error", message: "Unauthorized!" });
-            return false;
-        }
+        // if (!authJwt.haveAdminPermission(permission)) {
+            // runtime.logger.error("Unauthorized access");
+            // res.status(401).json({ error: "unauthorized_error", message: "Unauthorized!" });
+            // return false;
+        // }
 
-        return true;
-    }
+        // return true;
+    // }
 
     // POST - Create new schedule
     commandApp.post('/api/schedules', secureFnc, async (req, res) => {
-        if (!requireAdmin(req, res)) return;
+        const permission = checkGroupsFnc(req);
+        runtime.project.getProject(req.userId, permission).then(result => {
+			const { tagId, name, periods, onValue, offValue, timeFormat, skippHolidays } = req.body;
 
-        const { tagId, name, periods, onValue, offValue, timeFormat, skippHolidays } = req.body;
+			if (!tagId || !Array.isArray(periods) || !onValue || !offValue || !timeFormat) {
+				return res.status(400).json({ error: 'tagId, periods, onValue, offValue, and timeFormat are required' });
+			}
 
-        if (!tagId || !Array.isArray(periods) || !onValue || !offValue || !timeFormat) {
-            return res.status(400).json({ error: 'tagId, periods, onValue, offValue, and timeFormat are required' });
-        }
+			jobs = jobs.filter(job => !job.name.startsWith(tagId));
+			schedules = schedules.filter(sch => sch.tagId !== tagId);
 
-        jobs = jobs.filter(job => !job.name.startsWith(tagId));
-        schedules = schedules.filter(sch => sch.tagId !== tagId);
-
-        const newSchedule = { tagId, name: name || '', periods, onValue, offValue, timeFormat, skippHolidays };
-        schedules.push(newSchedule);
-        scheduleJobs(newSchedule);
-        try {
-            await saveSchedules();
+			const newSchedule = { tagId, name: name || '', periods, onValue, offValue, timeFormat, skippHolidays };
+			schedules.push(newSchedule);
+			scheduleJobs(newSchedule);
+        
+            saveSchedules();
             //await applyCurrentStates();
             res.json({ message: 'Schedule created', schedule: newSchedule });
-        } catch (err) {
-            res.status(500).json({ error: 'server_error', message: err.message });
-            runtime.logger.error(`api post schedules: ${err.message}`);
-        }
+        }).catch(function(err) {
+			if (err && err.code) {
+				if (err.code !== 'ERR_HTTP_HEADERS_SENT') {
+					res.status(400).json({error:err.code, message: err.message});
+					runtime.logger.error("api get project: " + err.message);
+				}
+			} else {
+				res.status(400).json({error:"unexpected_error", message: err});
+				runtime.logger.error("api get project: " + err);
+			}
+		});
+
     });
 
     // PUT - Update schedule
     commandApp.put('/api/schedules/:tagId', secureFnc, async (req, res) => {
-        if (!requireAdmin(req, res)) return;
+		const permission = checkGroupsFnc(req);
+		runtime.project.getProject(req.userId, permission).then(result => {
 
-        const tagId = req.params.tagId;
-        const { name, periods, onValue, offValue, timeFormat, skippHolidays } = req.body;
+			const tagId = req.params.tagId;
+			const { name, periods, onValue, offValue, timeFormat, skippHolidays } = req.body;
 
-        if (!Array.isArray(periods) || !onValue || !offValue || !timeFormat) {
-            return res.status(400).json({ error: 'Invalid periods, onValue, offValue, or timeFormat format' });
-        }
+			if (!Array.isArray(periods) || !onValue || !offValue || !timeFormat) {
+				return res.status(400).json({ error: 'Invalid periods, onValue, offValue, or timeFormat format' });
+			}
 
-        jobs = jobs.filter(job => !job.name.startsWith(tagId));
-        schedules = schedules.filter(s => s.tagId !== tagId);
+			jobs = jobs.filter(job => !job.name.startsWith(tagId));
+			schedules = schedules.filter(s => s.tagId !== tagId);
 
-        const updatedSchedule = { tagId, name: name || '', periods, onValue, offValue, timeFormat, skippHolidays };
-        schedules.push(updatedSchedule);
-        scheduleJobs(updatedSchedule);
-        try {
-            await saveSchedules();
+			const updatedSchedule = { tagId, name: name || '', periods, onValue, offValue, timeFormat, skippHolidays };
+			schedules.push(updatedSchedule);
+			scheduleJobs(updatedSchedule);
+
+            saveSchedules();
             //await applyCurrentStates();
             res.json({ message: 'Schedule updated', schedule: updatedSchedule });
-        } catch (err) {
-            res.status(500).json({ error: 'server_error', message: err.message });
-            runtime.logger.error(`api put schedules: ${err.message}`);
-        }
+		}).catch(function(err) {
+			if (err && err.code) {
+				if (err.code !== 'ERR_HTTP_HEADERS_SENT') {
+					res.status(400).json({error:err.code, message: err.message});
+					runtime.logger.error("api get project: " + err.message);
+				}
+			} else {
+				res.status(400).json({error:"unexpected_error", message: err});
+				runtime.logger.error("api get project: " + err);
+			}
+		});
     });
 
     // DELETE - Remove schedule
     commandApp.delete('/api/schedules/:tagId', secureFnc, async (req, res) => {
-        if (!requireAdmin(req, res)) return;
+        const permission = checkGroupsFnc(req);
+		runtime.project.getProject(req.userId, permission).then(result => {
+			const tagId = req.params.tagId;
 
-        const tagId = req.params.tagId;
+			jobs = jobs.filter(job => {
+				const match = job.name.startsWith(tagId);
+				if (match && job.job) job.job.cancel();
+				return !match;
+			});
 
-        jobs = jobs.filter(job => {
-            const match = job.name.startsWith(tagId);
-            if (match && job.job) job.job.cancel();
-            return !match;
-        });
-
-        schedules = schedules.filter(s => s.tagId !== tagId);
-        try {
-            const { ProjectDataCmdType } = runtime.project;
-            await runtime.project.setProjectData(ProjectDataCmdType.DelSchedule, { tagId });
-            res.json({ message: 'Schedule deleted', tagId });
-        } catch (err) {
-            res.status(500).json({ error: 'server_error', message: err.message });
-            runtime.logger.error(`api delete schedules: ${err.message}`);
-        }
-    });
+			schedules = schedules.filter(s => s.tagId !== tagId);
+			try {
+				const { ProjectDataCmdType } = runtime.project;
+				runtime.project.setProjectData(ProjectDataCmdType.DelSchedule, { tagId });
+				res.json({ message: 'Schedule deleted', tagId });
+			} catch (err) {
+				res.status(500).json({ error: 'server_error', message: err.message });
+				runtime.logger.error(`api delete schedules: ${err.message}`);
+			}
+    
+		}).catch(function(err) {
+			if (err && err.code) {
+				if (err.code !== 'ERR_HTTP_HEADERS_SENT') {
+					res.status(400).json({error:err.code, message: err.message});
+					runtime.logger.error("api get project: " + err.message);
+				}
+			} else {
+				res.status(400).json({error:"unexpected_error", message: err});
+				runtime.logger.error("api get project: " + err);
+			}
+		});
+	});
 
     // GET - Retrieve all schedules with status
     commandApp.get('/api/schedules', secureFnc, async (req, res) => {
-        if (!requireAdmin(req, res)) return;
-
-        try {
-            const now = moment();
+        const permission = checkGroupsFnc(req);
+		runtime.project.getProject(req.userId, permission).then(result => {
+            
+			const now = moment();
             const status = schedules.map(s => {
                 const isOn = s.periods.some(p => {
                     const today = now.day();
@@ -364,10 +392,18 @@ function createApp() {
             });
 
             res.json(status);
-        } catch (err) {
-            res.status(500).json({ error: 'server_error', message: err.message });
-            runtime.logger.error(`api get schedules: ${err.message}`);
-        }
+			
+		}).catch(function(err) {
+			if (err && err.code) {
+				if (err.code !== 'ERR_HTTP_HEADERS_SENT') {
+					res.status(400).json({error:err.code, message: err.message});
+					runtime.logger.error("api get project: " + err.message);
+				}
+			} else {
+				res.status(400).json({error:"unexpected_error", message: err});
+				runtime.logger.error("api get project: " + err);
+			}
+		});
     });
 
     return commandApp;
