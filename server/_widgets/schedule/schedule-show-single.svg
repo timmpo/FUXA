@@ -1,11 +1,11 @@
-<svg id="weeklyScheduleWidgetSingle" xmlns="http://www.w3.org/2000/svg" width="728" height="500">
+<svg id="weeklyScheduleWidgetSingle" xmlns="http://www.w3.org/2000/svg" width="372" height="412">
   <style>
     text { font-family: Arial, sans-serif; fill: #333; }
     .header { font-size: 16px; font-weight: bold; }
     .column-header { font-size: 14px; font-weight: bold; }
     .save-btn { font-size: 14px; padding: 8px 16px; background-color: #007bff; color: white; border: none; border-radius: 5px; cursor: pointer; display: flex; align-items: center; gap: 5px; }
     .save-btn:hover { background-color: #0056b3; }
-    .input-field { font-size: 14px; width: 80px; border: 1px solid #ccc; border-radius: 4px; padding: 2px; }
+    .input-field { font-size: 14px; width: 80px; border: 2px solid #ccc; border-radius: 4px; padding: 2px; }
     .row-odd { fill: #f5f5f5; }
     .row-even { fill: #fff; }
     .error-bg { fill: #ffe6e6; }
@@ -32,11 +32,27 @@
   <![CDATA[
     // Global Parameters and Variables
     //!export-start
-    let _ps_tagId = 't_a3599259-20754893'; // Default value, can be bound in Fuxa
+    let _ps_tagId = 't_578edcf1-0635381f'; // Default value, can be bound in Fuxa
     //!export-end
     let tagId = _ps_tagId; // Initialize with export variable
     let translations = {}; // Object to store translations
-    let currentLang = (navigator.language || 'en').split('-')[0]; // Get browser language, e.g., 'sv' or 'en'
+    //let currentLang = (navigator.language || 'en').split('-')[0]; // Get browser language, e.g., 'sv' or 'en'
+	
+	let currentLang = 'en'; // default
+
+	try {
+	  const storedLang = localStorage.getItem('currentLanguage-');
+	  if (storedLang) {
+		const parsedLang = JSON.parse(storedLang);
+		if (parsedLang && parsedLang.id) {
+		  currentLang = parsedLang.id.toLowerCase();
+		}
+	  }
+	} catch (e) {
+	  console.warn('Could not read language from localStorage:', e);
+	}
+
+	console.log('Current language:', currentLang);
 
     // Function to load translations from JSON file
     function loadTranslations(lang) {

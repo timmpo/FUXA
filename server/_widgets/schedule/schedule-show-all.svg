@@ -21,6 +21,12 @@
     .odd { fill: #f9f9f9; }
     .even { fill: #ffffff; }
 	.overlay { fill: #ffffff00; }
+	.popup-bg {
+	  fill: #ffffff;
+	  stroke: #0055cc; /* Standard blå kant */
+	  stroke-width: 2;
+	  transition: stroke 0.3s ease; /* Smidig övergång för färgändringar */
+	}
   </style>
 
   <rect class="background" x="0" y="0" width="728" height="500" />
@@ -54,9 +60,26 @@
 <![CDATA[
 
   const apiBaseUrl = '';
-  const userLang = (navigator.language || 'en').split('-')[0]; // e.g. 'sv', 'en'
-  let currentLang = userLang;
+  //const currentLang = (navigator.language || 'en').split('-')[0]; // e.g. 'sv', 'en'
+
   let translations = {};
+
+	let currentLang = 'en'; // default
+
+	try {
+	  const storedLang = localStorage.getItem('currentLanguage-');
+	  if (storedLang) {
+		const parsedLang = JSON.parse(storedLang);
+		if (parsedLang && parsedLang.id) {
+		  currentLang = parsedLang.id.toLowerCase();
+		}
+	  }
+	} catch (e) {
+	  console.warn('Could not read language from localStorage:', e);
+	}
+
+	console.log('Current language:', currentLang);
+
 
   // Debug logging
   function debugLog(message) {
@@ -245,7 +268,7 @@
   }
 
   // === Initialization ===
-  loadTranslations(userLang).then(() => {
+  loadTranslations(currentLang).then(() => {
     document.getElementById('titleText').textContent = translate('schedule-title');
     document.getElementById('headerName').textContent = translate('schedule-name');
     document.getElementById('headerPeriods').textContent = translate('schedule-periods');
