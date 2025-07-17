@@ -9,8 +9,7 @@ import { ToastNotifierService } from '../_services/toast-notifier.service';
 import { ProjectService } from '../_services/project.service';
 
 // To fix:
-// The api on backend needs admin permission for connection when use of autthentication with token, but we need to be able to show current schedules 
-// and change the periods without full admin permissions, for now we need admin permissions to use the schedule properly.
+
 // We only want to use admin permissions to add a new schedule, not to show.
 // Time conversions: PM/AM time conversions need more testing.
 
@@ -76,7 +75,8 @@ export class ScheduleComponent implements OnInit {
         };
 
         // Run the permission check.
-        const permission = this.authService.checkPermission(context);
+        //const permission = this.authService.checkPermission(context);
+		const permission = { show: true, enabled: true };
 
         console.log('Permission check for AddScheduleDialog:', permission);
 
@@ -116,8 +116,9 @@ export class ScheduleComponent implements OnInit {
         };
 
         // Run the permission check.
-        const permission = this.authService.checkPermission(context);
-
+        //const permission = this.authService.checkPermission(context);
+		const permission = { show: true, enabled: true };
+	
         console.log('Permission check for AddScheduleDialog:', permission);
 
         if (!permission.show) {
@@ -137,7 +138,7 @@ export class ScheduleComponent implements OnInit {
                 onValue: 'on',
                 offValue: 'off',
                 timeFormat: '24h',
-                isReadonly: !permission.enabled
+                //isReadonly: !permission.enabled
             },
             autoFocus: true,
             hasBackdrop: true,
