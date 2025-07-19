@@ -5,184 +5,181 @@
     .column-header { font-size: 14px; font-weight: bold; }
     .save-btn { font-size: 14px; padding: 8px 16px; background-color: #007bff; color: white; border: none; border-radius: 5px; cursor: pointer; display: flex; align-items: center; gap: 5px; }
     .save-btn:hover { background-color: #0056b3; }
-    .input-field { font-size: 14px; width: 80px; border: 2px solid #ccc; border-radius: 4px; padding: 2px; }
+    .input-field { font-size: 14px; border: 2px solid #ccc; border-radius: 4px; padding: 2px; }
     .row-odd { fill: #f5f5f5; }
     .row-even { fill: #fff; }
     .error-bg { fill: #ffe6e6; }
   </style>
-
-  <!-- Border -->
   <rect x="0" y="0" width="370" height="410" stroke="#ccc" stroke-width="1" fill="none" />
-
-  <!-- Background -->
   <rect x="0" y="0" width="370" height="410" fill="#f9f9f9" />
-
-  <!-- Header -->
   <rect x="10" y="10" width="340" height="30" fill="#eeeeee"></rect>
-  <text x="20" y="30" font-size="16" class="header" fill="black"></text>
-
-  <!-- Column headers -->
-  <text x="155" y="30" font-size="14" class="column-header" fill="black"></text>
-  <text x="265" y="30" font-size="14" class="column-header" fill="black"></text>
-
-  <!-- Schedule display area -->
+  <text x="20" y="30" class="header"></text>
+  <text x="155" y="30" class="column-header"></text>
+  <text x="265" y="30" class="column-header"></text>
   <g id="scheduleArea" />
 
   <script type="application/ecmascript">
   <![CDATA[
-    // Global Parameters and Variables
-    //!export-start
-    let _ps_tagId = 't_578edcf1-0635381f'; // Default value, can be bound in Fuxa
+    //let _ps_tagId = 't_578edcf1-0635381f';
+	//!export-start
+    let _ps_tagId = 't_5e837c37-75d949d6'; // Default value, can be bound in Fuxa
     //!export-end
-    let tagId = _ps_tagId; // Initialize with export variable
-    let translations = {}; // Object to store translations
-    //let currentLang = (navigator.language || 'en').split('-')[0]; // Get browser language, e.g., 'sv' or 'en'
-	
-	let currentLang = 'en'; // default
+    let tagId = _ps_tagId;
+    let translations = {};
+    let currentLang = 'en';
 
-	try {
-	  const storedLang = localStorage.getItem('currentLanguage-');
-	  if (storedLang) {
-		const parsedLang = JSON.parse(storedLang);
-		if (parsedLang && parsedLang.id) {
-		  currentLang = parsedLang.id.toLowerCase();
-		}
-	  }
-	} catch (e) {
-	  console.warn('Could not read language from localStorage:', e);
-	}
-
-	console.log('Current language:', currentLang);
-
-    // Function to load translations from JSON file
-    function loadTranslations(lang) {
-      const url = `/assets/i18n/${lang}.json`;
-      return fetch(url, { credentials: 'include' })
+    function fetchLanguageFromSettings() {
+      console.log('Fetching language from /api/settings...');
+      fetch('/api/settings', { credentials: 'include' })
         .then(res => {
-          if (!res.ok) throw new Error(`Failed to load translations for ${lang}`);
+          if (!res.ok) throw new Error('Failed to fetch settings');
           return res.json();
         })
         .then(data => {
+          if (data.language) {
+            currentLang = data.language.toLowerCase();
+            console.log('Detected language from API:', currentLang);
+          } else {
+            console.warn('No language found in settings, defaulting to "en"');
+          }
+          loadTranslations(currentLang);
+        })
+        .catch(err => {
+          console.error('Error fetching language settings:', err);
+          loadTranslations('en');
+        });
+    }
+
+
+    // Initiera
+    fetchLanguageFromSettings();
+
+    function loadTranslations(lang) {
+      const url = `/assets/i18n/${lang}.json`;
+      return fetch(url, { credentials: 'include' })
+        .then(res => res.json())
+        .then(data => {
           translations = data;
           currentLang = lang;
-          console.log(`Loaded translations for "${lang}"`);
-          // Update interface after translations are loaded
           updateInterface();
           fetchSchedule();
         })
         .catch(err => {
-          console.warn(`Failed to load "${lang}" translations: ${err.message}`);
-          if (lang !== 'en') {
-            return loadTranslations('en'); // Fallback to English
-          } else {
-            showErrorMessage('Failed to load translations');
-          }
+          if (lang !== 'en') return loadTranslations('en');
         });
     }
 
-    // Function to translate keys
     function translate(key) {
-      return translations[key] || key; // Return translation or key as fallback
+      return translations[key] || key;
     }
 
-    // Function to update interface with translations
     function updateInterface() {
-      const titleText = document.querySelector('text');
-      titleText.textContent = ''; // Placeholder, will be set by schedule name in fetchSchedule
-
-      // Update column headers
-      const onText = document.querySelectorAll('text')[1];
-      onText.textContent = translate('schedule-status-on');
-      const offText = document.querySelectorAll('text')[2];
-      offText.textContent = translate('schedule-status-off');
+      document.querySelector('text').textContent = '';
+      document.querySelectorAll('text')[1].textContent = translate('schedule-status-on');
+      document.querySelectorAll('text')[2].textContent = translate('schedule-status-off');
     }
 
-    // Function to receive values from Fuxa
     function putValue(id, value) {
       if (id === '_ps_tagId') {
-        tagId = value; // Update tagId when Fuxa sends a new value
-        fetchSchedule(); // Reload schedule with new tagId
+        tagId = value;
+        fetchSchedule();
       }
     }
 
-    // Placeholder for sending values to Fuxa
-    function postValue(id, value) {
-      console.error('Not defined!');
-    }
-
-    // Function to fetch schedule data
     function fetchSchedule() {
       const container = document.getElementById('scheduleArea');
-      container.innerHTML = ''; // Clear previous content
+      container.innerHTML = '';
 
       fetch('/api/schedules', { credentials: 'include' })
         .then(res => res.json())
         .then(data => {
           const schedule = data.find(s => s.tagId === tagId);
-          if (!schedule) {
-            showErrorMessage(translate('schedule-notFound'));
-            return;
-          }
+          if (!schedule) return;
           updateScheduleDisplay(schedule);
-        })
-        .catch(err => {
-          showErrorMessage(translate('schedule-error'));
-          console.error('Error fetching schedule:', err);
         });
     }
 
-    // Function to display error message in widget
-    function showErrorMessage(message) {
-      const container = document.getElementById('scheduleArea');
-      container.innerHTML = '';
-      const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
-      rect.setAttribute('x', 15);
-      rect.setAttribute('y', 45);
-      rect.setAttribute('width', 300);
-      rect.setAttribute('height', 30);
-      rect.setAttribute('class', 'error-bg');
-      container.appendChild(rect);
-      const errorText = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-      errorText.setAttribute('x', 20);
-      errorText.setAttribute('y', 60);
-      errorText.setAttribute('font-size', '14');
-      errorText.setAttribute('fill', 'red'); // Red text for error message
-      errorText.textContent = message;
-      container.appendChild(errorText);
-      setTimeout(() => { container.innerHTML = ''; fetchSchedule(); }, 5000);
+    function createTimeSelects(value, index, type, format) {
+      const container = document.createElement('div');
+      container.style.display = 'flex';
+      container.style.gap = '4px';
+      let hour = parseInt(value.split(':')[0]);
+      let minute = parseInt(value.split(':')[1]);
+      let isPM = false;
+
+      if (format === '12h') {
+        isPM = hour >= 12;
+        hour = hour % 12 || 12;
+      }
+
+      const hourSelect = document.createElement('select');
+      hourSelect.className = 'input-field';
+      const hourLimit = format === '12h' ? 12 : 23;
+      const hourStart = format === '12h' ? 1 : 0;
+      for (let h = hourStart; h <= hourLimit; h++) {
+        const opt = document.createElement('option');
+        opt.value = h;
+        opt.textContent = h.toString().padStart(2, '0');
+        if (h === hour) opt.selected = true;
+        hourSelect.appendChild(opt);
+      }
+
+      const minuteSelect = document.createElement('select');
+      minuteSelect.className = 'input-field';
+      for (let m = 0; m < 60; m++) {
+        const opt = document.createElement('option');
+        opt.value = m;
+        opt.textContent = m.toString().padStart(2, '0');
+        if (m === minute) opt.selected = true;
+        minuteSelect.appendChild(opt);
+      }
+
+      container.appendChild(hourSelect);
+      container.appendChild(minuteSelect);
+
+      let ampmSelect = null;
+      if (format === '12h') {
+        ampmSelect = document.createElement('select');
+        ampmSelect.className = 'input-field';
+        ['AM', 'PM'].forEach(period => {
+          const opt = document.createElement('option');
+          opt.value = period;
+          opt.textContent = period;
+          if ((isPM && period === 'PM') || (!isPM && period === 'AM')) opt.selected = true;
+          ampmSelect.appendChild(opt);
+        });
+        container.appendChild(ampmSelect);
+      }
+
+      container.dataset.index = index;
+      container.dataset.type = type;
+
+      container._getTimeValue = function () {
+        let h = parseInt(hourSelect.value);
+        const m = parseInt(minuteSelect.value);
+        if (format === '12h') {
+          const isPM = ampmSelect.value === 'PM';
+          if (h === 12) h = isPM ? 12 : 0;
+          else h = isPM ? h + 12 : h;
+        }
+        return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
+      };
+
+      return container;
     }
 
-    // Function to update schedule display
     function updateScheduleDisplay(schedule) {
       const container = document.getElementById('scheduleArea');
-      container.innerHTML = ''; // Clear previous content, including any error messages
+      container.innerHTML = '';
 
-      // Translated days
-      const days = [
-        translate('schedule-day-sunday'),
-        translate('schedule-day-monday'),
-        translate('schedule-day-tuesday'),
-        translate('schedule-day-wednesday'),
-        translate('schedule-day-thursday'),
-        translate('schedule-day-friday'),
-        translate('schedule-day-saturday')
-      ];
+      const days = [translate('schedule-day-sunday'), translate('schedule-day-monday'), translate('schedule-day-tuesday'), translate('schedule-day-wednesday'), translate('schedule-day-thursday'), translate('schedule-day-friday'), translate('schedule-day-saturday')];
+      document.querySelector('text').textContent = schedule.name || translate('schedule-editTitle');
 
-      // Header with schedule name
-      const titleText = document.querySelector('text');
-      titleText.textContent = schedule.name || translate('schedule-editTitle'); // Use schedule name or fallback
-
-      // Column headers for On/Off
-      const onText = document.querySelectorAll('text')[1];
-      onText.textContent = translate('schedule-status-on');
-      const offText = document.querySelectorAll('text')[2];
-      offText.textContent = translate('schedule-status-off');
+      const format = schedule.timeFormat === '12h' ? '12h' : '24h';
 
       schedule.periods.forEach((p, i) => {
-        const y = 80 + i * 40; // Increased y to give more space
+        const y = 80 + i * 40;
         const isOdd = i % 2 === 0;
-
-        // Row background
         const rowRect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
         rowRect.setAttribute('x', 10);
         rowRect.setAttribute('y', y - 35);
@@ -191,7 +188,6 @@
         rowRect.setAttribute('class', isOdd ? 'row-odd' : 'row-even');
         container.appendChild(rowRect);
 
-        // Day text
         const dayText = document.createElementNS('http://www.w3.org/2000/svg', 'text');
         dayText.setAttribute('x', 20);
         dayText.setAttribute('y', y - 13);
@@ -200,26 +196,25 @@
         dayText.textContent = days[parseInt(p.dayOfWeek)];
         container.appendChild(dayText);
 
-        // Start time input
-        const startInput = document.createElementNS('http://www.w3.org/2000/svg', 'foreignObject');
-        startInput.setAttribute('x', 150);
-        startInput.setAttribute('y', y - 29);
-        startInput.setAttribute('width', 90);
-        startInput.setAttribute('height', 30);
-        startInput.innerHTML = `<input xmlns="http://www.w3.org/1999/xhtml" type="time" value="${p.startTime}" data-index="${i}" data-type="start" class="input-field" />`;
-        container.appendChild(startInput);
+        const startWrapper = document.createElementNS('http://www.w3.org/2000/svg', 'foreignObject');
+        startWrapper.setAttribute('x', 150);
+        startWrapper.setAttribute('y', y - 29);
+        startWrapper.setAttribute('width', 100);
+        startWrapper.setAttribute('height', 35);
+        const startSelect = createTimeSelects(p.startTime, i, 'start', format);
+        startWrapper.appendChild(startSelect);
+        container.appendChild(startWrapper);
 
-        // End time input
-        const endInput = document.createElementNS('http://www.w3.org/2000/svg', 'foreignObject');
-        endInput.setAttribute('x', 260);
-        endInput.setAttribute('y', y - 29);
-        endInput.setAttribute('width', 90);
-        endInput.setAttribute('height', 30);
-        endInput.innerHTML = `<input xmlns="http://www.w3.org/1999/xhtml" type="time" value="${p.endTime}" data-index="${i}" data-type="end" class="input-field" />`;
-        container.appendChild(endInput);
+        const endWrapper = document.createElementNS('http://www.w3.org/2000/svg', 'foreignObject');
+        endWrapper.setAttribute('x', 260);
+        endWrapper.setAttribute('y', y - 29);
+        endWrapper.setAttribute('width', 100);
+        endWrapper.setAttribute('height', 35);
+        const endSelect = createTimeSelects(p.endTime, i, 'end', format);
+        endWrapper.appendChild(endSelect);
+        container.appendChild(endWrapper);
       });
 
-      // Save button with translation and styling
       const saveButton = document.createElementNS('http://www.w3.org/2000/svg', 'foreignObject');
       saveButton.setAttribute('x', 20);
       saveButton.setAttribute('y', 80 + schedule.periods.length * 40);
@@ -228,13 +223,13 @@
       saveButton.innerHTML = `<button xmlns="http://www.w3.org/1999/xhtml" class="save-btn">💾 ${translate('schedule-save')}</button>`;
       container.appendChild(saveButton);
 
-      // Click: save changes
       saveButton.querySelector('button').addEventListener('click', () => {
-        const inputs = container.querySelectorAll('input');
-        inputs.forEach(input => {
-          const index = parseInt(input.getAttribute('data-index'));
-          const type = input.getAttribute('data-type');
-          schedule.periods[index][type + 'Time'] = input.value;
+        const wrappers = container.querySelectorAll('foreignObject > div');
+        wrappers.forEach(wrapper => {
+          const index = parseInt(wrapper.dataset.index);
+          const type = wrapper.dataset.type;
+          const time = wrapper._getTimeValue();
+          schedule.periods[index][type + 'Time'] = time;
         });
 
         fetch(`/api/schedules/${tagId}`, {
@@ -243,32 +238,12 @@
           credentials: 'include',
           body: JSON.stringify(schedule)
         })
-          .then(res => res.json())
-          .then(() => {
-            showErrorMessage(translate('schedule-saved')); // Show success message
-            fetchSchedule(); // Reload schedule
-          })
-          .catch(err => {
-            showErrorMessage(translate('schedule-error'));
-            console.error('Error saving schedule:', err);
-          });
+        .then(res => res.json())
+        .then(() => fetchSchedule());
       });
     }
 
-    // Initialization: Load translations and start
     loadTranslations(currentLang);
-
-    // Cleanup when widget is removed
-    const observer = new MutationObserver((mutations) => {
-      mutations.forEach(m => {
-        m.removedNodes.forEach(node => {
-          if (node.id === 'weeklyScheduleWidgetSingle') {
-            observer.disconnect();
-          }
-        });
-      });
-    });
-    observer.observe(document.body, { childList: true, subtree: true });
   ]]>
   </script>
 </svg>

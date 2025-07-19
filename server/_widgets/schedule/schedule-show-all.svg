@@ -4,7 +4,7 @@
     .header { font-weight: bold; font-size: 16px; fill: #000; }
     .table-row { cursor: pointer; }
     .table-row:hover text { fill: #0055cc; }
-    .input-field { font-size: 12px; width: 90px; height: 25px; border: 1px solid #ccc; border-radius: 4px; padding: 2px; }
+    .input-field, select { font-size: 12px; width: 80px; height: 25px; border: 1px solid #ccc; border-radius: 4px; padding: 2px; }
     .save-btn { font-size: 14px; width: 100px; height: 30px; background-color: #28a745; color: white; border: none; border-radius: 4px; cursor: pointer; }
     .save-btn:hover { background-color: #218838; }
     .popup-save-btn { font-size: 14px; width: 80px; height: 30px; background-color: #28a745; color: white; border: none; border-radius: 4px; cursor: pointer; margin-right: 10px; }
@@ -16,17 +16,11 @@
     .debug { font-size: 12px; fill: blue; }
     rect.background { fill: #f5f5f5; }
     rect.header-bg { fill: #e0e0e0; stroke: #ccc; stroke-width: 1; }
-    rect.popup-bg { fill: #ffffff; stroke: #ccc; stroke-width: 1; }
+    rect.popup-bg { fill: #ffffff; stroke: #0055cc; stroke-width: 2; transition: stroke 0.3s ease; }
     .overlay { fill: rgba(0, 0, 0, 0.5); }
     .odd { fill: #f9f9f9; }
     .even { fill: #ffffff; }
 	.overlay { fill: #ffffff00; }
-	.popup-bg {
-	  fill: #ffffff;
-	  stroke: #0055cc; /* Standard blå kant */
-	  stroke-width: 2;
-	  transition: stroke 0.3s ease; /* Smidig övergång för färgändringar */
-	}
   </style>
 
   <rect class="background" x="0" y="0" width="728" height="500" />
@@ -45,10 +39,10 @@
 
   <rect id="overlay" class="overlay" x="0" y="0" width="728" height="500" opacity="0" pointer-events="none" />
   <g id="popup" opacity="0" pointer-events="none">
-    <rect class="popup-bg" x="100" y="100" width="400" height="370" rx="10" />
-    <text id="popupTitle" x="110" y="130" font-size="16" fill="#000" font-weight="bold"></text>
+    <rect class="popup-bg" x="100" y="50" width="500" height="420" rx="10" />
+    <text id="popupTitle" x="110" y="80" font-size="16" fill="#000" font-weight="bold"></text>
     <g id="popupContent" />
-    <foreignObject x="250" y="430" width="200" height="40">
+    <foreignObject x="270" y="430" width="200" height="40">
       <div xmlns="http://www.w3.org/1999/xhtml" style="display: flex; justify-content: flex-end; gap: 10px;">
         <button id="popupSaveBtn" class="popup-save-btn"></button>
         <button id="popupCloseBtn" class="close-btn"></button>
@@ -56,61 +50,262 @@
     </foreignObject>
   </g>
 
- <script type="application/ecmascript">
+<script type="application/ecmascript">
 <![CDATA[
 
-  const apiBaseUrl = '';
-  //const currentLang = (navigator.language || 'en').split('-')[0]; // e.g. 'sv', 'en'
+let currentLang = 'en';
+let translations = {};
+const apiBaseUrl = '';
 
-  let translations = {};
+async function fetchLanguage() {
+  try {
+    const res = await fetch(`${apiBaseUrl}/api/settings`, { credentials: 'include' });
+    const data = await res.json();
+    currentLang = data.language || 'en';
+    console.log('Language from API:', currentLang);
+  } catch (e) {
+    console.warn('Could not fetch language from API:', e);
+  }
+}
 
-	let currentLang = 'en'; // default
+function loadTranslations(lang) {
+  return fetch(`/assets/i18n/${lang}.json`)
+    .then(res => res.json())
+    .then(data => { translations = data; })
+    .catch(() => { translations = {}; });
+}
 
-	try {
-	  const storedLang = localStorage.getItem('currentLanguage-');
-	  if (storedLang) {
-		const parsedLang = JSON.parse(storedLang);
-		if (parsedLang && parsedLang.id) {
-		  currentLang = parsedLang.id.toLowerCase();
-		}
-	  }
-	} catch (e) {
-	  console.warn('Could not read language from localStorage:', e);
-	}
+function translate(key) {
+  return translations[key] || key;
+}
 
-	console.log('Current language:', currentLang);
+function formatTimeOptions(format) {
+  const hours = format === '12h' ? [...Array(12).keys()].map(h => h + 1) : [...Array(24).keys()];
+  const minutes = [...Array(60).keys()].filter(m => m % 5 === 0);
+  const ampm = format === '12h' ? ['AM', 'PM'] : [];
+  return { hours, minutes, ampm };
+}
 
+function createTimeSelect(x, y, type, value, format, index, schedule) {
+  const fo = document.createElementNS('http://www.w3.org/2000/svg', 'foreignObject');
+  fo.setAttribute('x', x);
+  fo.setAttribute('y', y);
+  fo.setAttribute('width', '140');
+  fo.setAttribute('height', '30');
 
-  // Debug logging
-  function debugLog(message) {
-    console.log(`[WeeklyScheduleWidget ${new Date().toISOString()}]: ${message}`);
+  const div = document.createElementNS('http://www.w3.org/1999/xhtml', 'div');
+  div.style.display = 'flex';
+  div.style.gap = '2px';
+
+  const { hours, minutes, ampm } = formatTimeOptions(format);
+  let h = 0, m = 0, ap = '';
+
+  if (value) {
+    const parts = value.split(':');
+    h = parseInt(parts[0]);
+    m = parseInt(parts[1]);
+    if (format === '12h') {
+      ap = h >= 12 ? 'PM' : 'AM';
+      h = h % 12;
+      if (h === 0) h = 12;
+    }
   }
 
-  // Translate key using loaded translations, fallback to key itself
-  function translate(key) {
-    return translations[key] || key;
+  const hourSelect = document.createElement('select');
+  hours.forEach(opt => {
+    const o = document.createElement('option');
+    o.value = opt;
+    o.text = opt.toString().padStart(2, '0');
+    if (opt === h) o.selected = true;
+    hourSelect.appendChild(o);
+  });
+
+  const minuteSelect = document.createElement('select');
+  minutes.forEach(opt => {
+    const o = document.createElement('option');
+    o.value = opt;
+    o.text = opt.toString().padStart(2, '0');
+    if (opt === m) o.selected = true;
+    minuteSelect.appendChild(o);
+  });
+
+  div.appendChild(hourSelect);
+  div.appendChild(minuteSelect);
+
+  let ampmSelect;
+  if (format === '12h') {
+    ampmSelect = document.createElement('select');
+    ampm.forEach(opt => {
+      const o = document.createElement('option');
+      o.value = opt;
+      o.text = opt;
+      if (opt === ap) o.selected = true;
+      ampmSelect.appendChild(o);
+    });
+    div.appendChild(ampmSelect);
   }
 
-  // Load translation file based on language
-  function loadTranslations(lang) {
-    const url = `/assets/i18n/${lang}.json`;
-    return fetch(url)
-      .then(res => {
-        if (!res.ok) throw new Error(`Translation file not found: ${lang}`);
-        return res.json();
-      })
-      .then(data => {
-        translations = data;
-        currentLang = lang;
-        debugLog(`Loaded translations for "${lang}"`);
-      })
-      .catch(err => {
-        console.warn(`Failed to load "${lang}" translations:`, err.message);
-        if (lang !== 'en') {
-          return loadTranslations('en'); // fallback to English
-        }
-      });
-  }
+  [hourSelect, minuteSelect, ampmSelect].forEach(el => {
+    if (el) el.addEventListener('change', () => {
+      let hr = parseInt(hourSelect.value);
+      if (format === '12h') {
+        if (ampmSelect.value === 'PM' && hr !== 12) hr += 12;
+        if (ampmSelect.value === 'AM' && hr === 12) hr = 0;
+      }
+      const min = parseInt(minuteSelect.value);
+      schedule.periods[index][`${type}Time`] = `${hr.toString().padStart(2, '0')}:${min.toString().padStart(2, '0')}`;
+    });
+  });
+
+  fo.appendChild(div);
+  return fo;
+}
+
+function showPopup(schedule) {
+  const popup = document.getElementById('popup');
+  const popupTitle = document.getElementById('popupTitle');
+  const popupContent = document.getElementById('popupContent');
+  const saveBtn = document.getElementById('popupSaveBtn');
+  const closeBtn = document.getElementById('popupCloseBtn');
+  const svgNs = 'http://www.w3.org/2000/svg';
+  const xhtmlNs = 'http://www.w3.org/1999/xhtml';
+
+  popupTitle.textContent = `${schedule.name}`;
+  saveBtn.textContent = translate('schedule-save');
+  closeBtn.textContent = translate('schedule-cancel');
+  popupContent.innerHTML = '';
+
+  const days = [
+    translate('schedule-day-sunday'), translate('schedule-day-monday'), translate('schedule-day-tuesday'),
+    translate('schedule-day-wednesday'), translate('schedule-day-thursday'), translate('schedule-day-friday'),
+    translate('schedule-day-saturday')
+  ];
+
+  const is12h = schedule.timeFormat === '12h';
+  let yOffset = 110;
+
+  // Header labels
+  const dayLabel = document.createElementNS(svgNs, 'text');
+  dayLabel.setAttribute('x', '110');
+  dayLabel.setAttribute('y', yOffset);
+  dayLabel.setAttribute('font-weight', 'bold');
+  dayLabel.textContent = translate('schedule-dayOfWeek-label');
+  popupContent.appendChild(dayLabel);
+
+  const onLabel = document.createElementNS(svgNs, 'text');
+  onLabel.setAttribute('x', '250');
+  onLabel.setAttribute('y', yOffset);
+  onLabel.setAttribute('font-weight', 'bold');
+  onLabel.textContent = translate('schedule-status-on');
+  popupContent.appendChild(onLabel);
+
+  const offLabel = document.createElementNS(svgNs, 'text');
+  offLabel.setAttribute('x', '420');
+  offLabel.setAttribute('y', yOffset);
+  offLabel.setAttribute('font-weight', 'bold');
+  offLabel.textContent = translate('schedule-status-off');
+  popupContent.appendChild(offLabel);
+
+  yOffset += 25;
+
+  const createDropdown = (options, selected, width = 50) => {
+    const select = document.createElementNS(xhtmlNs, 'select');
+    select.setAttribute('style', `width:${width}px;margin-right:2px;`);
+    options.forEach(optVal => {
+      const opt = document.createElementNS(xhtmlNs, 'option');
+      opt.value = optVal;
+      opt.textContent = optVal;
+      if (optVal === selected) opt.selected = true;
+      select.appendChild(opt);
+    });
+    return select;
+  };
+
+  schedule.periods.forEach((period, index) => {
+    const dayText = document.createElementNS(svgNs, 'text');
+    dayText.setAttribute('x', '110');
+    dayText.setAttribute('y', yOffset + 15);
+    dayText.setAttribute('fill', '#000');
+    dayText.textContent = days[parseInt(period.dayOfWeek)];
+    popupContent.appendChild(dayText);
+
+    const fo = document.createElementNS(svgNs, 'foreignObject');
+    fo.setAttribute('x', '240');
+    fo.setAttribute('y', yOffset);
+    fo.setAttribute('width', '400');
+    fo.setAttribute('height', '35');
+
+    const wrapper = document.createElementNS(xhtmlNs, 'div');
+    wrapper.setAttribute('xmlns', xhtmlNs);
+    wrapper.style.display = 'flex';
+
+    const parseTime = (timeStr) => {
+      let [h, m] = timeStr.split(':').map(n => parseInt(n));
+      let ampm = '';
+      if (is12h) {
+        ampm = h >= 12 ? 'PM' : 'AM';
+        h = h % 12;
+        if (h === 0) h = 12;
+      }
+      return {
+        hour: h.toString().padStart(2, '0'),
+        minute: m.toString().padStart(2, '0'),
+        ampm
+      };
+    };
+
+    const start = parseTime(period.startTime);
+    const end = parseTime(period.endTime);
+
+    const hourOptions = is12h ? Array.from({length: 12}, (_, i) => (i+1).toString().padStart(2, '0'))
+                              : Array.from({length: 24}, (_, i) => i.toString().padStart(2, '0'));
+    const minuteOptions = Array.from({length: 12}, (_, i) => (i*5).toString().padStart(2, '0'));
+    const ampmOptions = ['AM', 'PM'];
+
+    const sh = createDropdown(hourOptions, start.hour);
+    const sm = createDropdown(minuteOptions, start.minute);
+    const sap = is12h ? createDropdown(ampmOptions, start.ampm, 55) : null;
+
+    const spacer = document.createElementNS(xhtmlNs, 'div');
+    spacer.style.width = '30px';
+
+    const eh = createDropdown(hourOptions, end.hour);
+    const em = createDropdown(minuteOptions, end.minute);
+    const eap = is12h ? createDropdown(ampmOptions, end.ampm, 55) : null;
+
+    [sh, sm, sap, spacer, eh, em, eap].forEach(el => {
+      if (el) wrapper.appendChild(el);
+    });
+
+    const update = () => {
+      let startHour = parseInt(sh.value);
+      let endHour = parseInt(eh.value);
+      if (is12h) {
+        if (sap.value === 'PM' && startHour < 12) startHour += 12;
+        if (sap.value === 'AM' && startHour === 12) startHour = 0;
+        if (eap.value === 'PM' && endHour < 12) endHour += 12;
+        if (eap.value === 'AM' && endHour === 12) endHour = 0;
+      }
+      period.startTime = `${startHour.toString().padStart(2, '0')}:${sm.value}`;
+      period.endTime = `${endHour.toString().padStart(2, '0')}:${em.value}`;
+    };
+
+    [sh, sm, sap, eh, em, eap].forEach(el => {
+      if (el) el.addEventListener('change', update);
+    });
+
+    fo.appendChild(wrapper);
+    popupContent.appendChild(fo);
+    yOffset += 40;
+  });
+
+  document.getElementById('overlay').setAttribute('opacity', '1');
+  popup.setAttribute('opacity', '1');
+  popup.setAttribute('pointer-events', 'auto');
+
+  saveBtn.onclick = () => savePopupChanges(schedule);
+  closeBtn.onclick = () => hidePopup();
+}
 
   // Display error message to user
   function displayError(message) {
@@ -119,164 +314,125 @@
     setTimeout(() => { if (errorText) errorText.textContent = ''; }, 5000);
   }
 
-  // Display debug message
-  function displayDebug(message) {
-    const debugText = document.getElementById('debugMsg');
-    if (debugText) debugText.textContent = message;
-    setTimeout(() => { if (debugText) debugText.textContent = ''; }, 10000);
+function savePopupChanges(schedule) {
+  // Helper: Convert time string (either 24h or AM/PM) to minutes since midnight
+  function timeToMinutes(timeStr) {
+    let [hours, minutes] = [0, 0];
+    let isPM = false;
+
+    if (timeStr.includes('AM') || timeStr.includes('PM')) {
+      const parts = timeStr.trim().split(/[: ]/); // supports "hh:mm AM/PM"
+      hours = parseInt(parts[0], 10);
+      minutes = parseInt(parts[1], 10);
+      isPM = parts[2] === 'PM';
+
+      if (isPM && hours < 12) hours += 12;
+      if (!isPM && hours === 12) hours = 0; // 12 AM = 00:00
+    } else {
+      [hours, minutes] = timeStr.split(':').map(Number);
+    }
+
+    return hours * 60 + minutes;
   }
 
-  // Fetch schedule data from API
-  function fetchSchedules() {
-    const loadingText = document.getElementById('loadingMsg');
-    loadingText.textContent = translate('schedule-loading');
-    fetch(`${apiBaseUrl}/api/schedules`, { credentials: 'include' })
-      .then(res => res.json())
-      .then(data => renderScheduleTable(data))
-      .catch(err => displayError(`${translate('schedule-error')}${err.message}`))
-      .finally(() => { loadingText.textContent = ''; });
+  // Validate all periods
+  const invalidPeriods = schedule.periods.filter(p => {
+    const startTotal = timeToMinutes(p.startTime);
+    const endTotal = timeToMinutes(p.endTime);
+    return startTotal >= endTotal;
+  });
+
+  if (invalidPeriods.length > 0) {
+    displayError(translate('invalid-time-range') || 'Starttid måste vara före stopptid.');
+    return;
   }
 
-  // Render schedule rows into SVG
-  function renderScheduleTable(schedules) {
-    const container = document.getElementById('scheduleTable');
-    container.innerHTML = '';
-    let yOffset = 110;
-    schedules.forEach((schedule, index) => {
-      const group = document.createElementNS('http://www.w3.org/2000/svg', 'g');
-      group.setAttribute('class', 'table-row');
-
-      const bgRect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
-      bgRect.setAttribute('x', '10');
-      bgRect.setAttribute('y', yOffset - 5);
-      bgRect.setAttribute('width', '708');
-      bgRect.setAttribute('height', '35');
-      bgRect.setAttribute('class', index % 2 === 0 ? 'even' : 'odd');
-      group.appendChild(bgRect);
-
-      const nameText = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-      nameText.setAttribute('x', '20');
-      nameText.setAttribute('y', yOffset + 15);
-      nameText.textContent = schedule.name || 'Namnlös';
-      group.appendChild(nameText);
-
-      const periodsText = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-      periodsText.setAttribute('x', '200');
-      periodsText.setAttribute('y', yOffset + 15);
-      periodsText.textContent = schedule.periods.length;
-      group.appendChild(periodsText);
-
-      const statusText = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-      statusText.setAttribute('x', '300');
-      statusText.setAttribute('y', yOffset + 15);
-      statusText.textContent = schedule.isOn ? translate('schedule-status-on') : translate('schedule-status-off');
-      group.appendChild(statusText);
-
-      group.addEventListener('click', () => showPopup(schedule));
-      container.appendChild(group);
-      yOffset += 40;
-    });
-  }
-
-  // Display popup for editing schedule
-  function showPopup(schedule) {
-    const popup = document.getElementById('popup');
-    const popupTitle = document.getElementById('popupTitle');
-    const popupContent = document.getElementById('popupContent');
-    const saveBtn = document.getElementById('popupSaveBtn');
-    const closeBtn = document.getElementById('popupCloseBtn');
-    const svgNs = 'http://www.w3.org/2000/svg';
-    const xhtmlNs = 'http://www.w3.org/1999/xhtml';
-
-    popupTitle.textContent = `${schedule.name}`;
-    saveBtn.textContent = translate('schedule-save');
-    closeBtn.textContent = translate('schedule-cancel');
-    popupContent.innerHTML = '';
-
-    const days = [
-      translate('schedule-day-sunday'), translate('schedule-day-monday'), translate('schedule-day-tuesday'),
-      translate('schedule-day-wednesday'), translate('schedule-day-thursday'), translate('schedule-day-friday'),
-      translate('schedule-day-saturday')
-    ];
-
-    let yOffset = 160;
-
-    schedule.periods.forEach((period, index) => {
-      const dayText = document.createElementNS(svgNs, 'text');
-      dayText.setAttribute('x', '110');
-      dayText.setAttribute('y', yOffset);
-      dayText.setAttribute('fill', '#000');
-      dayText.textContent = days[parseInt(period.dayOfWeek)] || 'Invalid';
-      popupContent.appendChild(dayText);
-
-      const createTimeInput = (type, value) => {
-        const fo = document.createElementNS(svgNs, 'foreignObject');
-        fo.setAttribute('x', type === 'start' ? '250' : '350');
-        fo.setAttribute('y', yOffset - 15);
-        fo.setAttribute('width', '90');
-        fo.setAttribute('height', '25');
-        const input = document.createElementNS(xhtmlNs, 'input');
-        input.setAttribute('type', 'time');
-        input.setAttribute('class', 'input-field');
-        input.value = value || '';
-        input.addEventListener('input', (event) => {
-          schedule.periods[index][type + 'Time'] = event.target.value;
-        });
-        fo.appendChild(input);
-        return fo;
-      };
-
-      popupContent.appendChild(createTimeInput('start', period.startTime));
-      popupContent.appendChild(createTimeInput('end', period.endTime));
-      yOffset += 40;
-    });
-
-    document.getElementById('overlay').setAttribute('opacity', '1');
-    popup.setAttribute('opacity', '1');
-    popup.setAttribute('pointer-events', 'auto');
-
-    saveBtn.onclick = () => savePopupChanges(schedule);
-    closeBtn.onclick = () => hidePopup();
-  }
-
-  // Hide popup
-  function hidePopup() {
-    document.getElementById('overlay').setAttribute('opacity', '0');
-    const popup = document.getElementById('popup');
-    popup.setAttribute('opacity', '0');
-    popup.setAttribute('pointer-events', 'none');
-  }
-
-  // Save edited schedule to API
-  function savePopupChanges(schedule) {
-    fetch(`${apiBaseUrl}/api/schedules/${schedule.tagId}`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      credentials: 'include',
-      body: JSON.stringify(schedule)
-    })
+  // All OK, send to backend
+  fetch(`${apiBaseUrl}/api/schedules/${schedule.tagId}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+    body: JSON.stringify(schedule)
+  })
     .then(res => {
       if (!res.ok) throw new Error(`HTTP error ${res.status}`);
       return res.json();
     })
     .then(() => {
+      console.log(schedule);
       displayError(translate('schedule-saved'));
       hidePopup();
-      fetchSchedules();
+      init(); // reload
     })
     .catch(err => displayError(`${translate('schedule-error')}${err.message}`));
-  }
+}
 
-  // === Initialization ===
-  loadTranslations(currentLang).then(() => {
-    document.getElementById('titleText').textContent = translate('schedule-title');
-    document.getElementById('headerName').textContent = translate('schedule-name');
-    document.getElementById('headerPeriods').textContent = translate('schedule-periods');
-    document.getElementById('headerStatus').textContent = translate('schedule-status');
-    fetchSchedules();
+
+
+function hidePopup() {
+  document.getElementById('overlay').setAttribute('opacity', '0');
+  const popup = document.getElementById('popup');
+  popup.setAttribute('opacity', '0');
+  popup.setAttribute('pointer-events', 'none');
+}
+
+async function init() {
+  await fetchLanguage();
+  await loadTranslations(currentLang);
+
+  document.getElementById('titleText').textContent = translate('schedule-title');
+  document.getElementById('headerName').textContent = translate('schedule-name');
+  document.getElementById('headerPeriods').textContent = translate('schedule-periods');
+  document.getElementById('headerStatus').textContent = translate('schedule-status');
+
+  const res = await fetch(`${apiBaseUrl}/api/project`, { credentials: 'include' });
+  const data = await res.json();
+
+  const table = document.getElementById('scheduleTable');
+  table.innerHTML = '';  // Rensa tabellen innan uppdatering
+
+  let yOffset = 110;
+
+  (data.schedules || []).forEach((schedule, index) => {
+    const group = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+    group.setAttribute('class', 'table-row');
+
+    const bgRect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+    bgRect.setAttribute('x', '10');
+    bgRect.setAttribute('y', yOffset - 5);
+    bgRect.setAttribute('width', '708');
+    bgRect.setAttribute('height', '35');
+    bgRect.setAttribute('class', index % 2 === 0 ? 'even' : 'odd');
+    group.appendChild(bgRect);
+
+    const nameText = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+    nameText.setAttribute('x', '20');
+    nameText.setAttribute('y', yOffset + 15);
+    nameText.textContent = schedule.name || 'Namnlös';
+    group.appendChild(nameText);
+
+    const periodsText = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+    periodsText.setAttribute('x', '200');
+    periodsText.setAttribute('y', yOffset + 15);
+    periodsText.textContent = schedule.periods.length;
+    group.appendChild(periodsText);
+
+    const statusText = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+    statusText.setAttribute('x', '300');
+    statusText.setAttribute('y', yOffset + 15);
+    statusText.textContent = schedule.isOn ? translate('schedule-status-on') : translate('schedule-status-off');
+    group.appendChild(statusText);
+
+    group.addEventListener('click', () => showPopup(schedule));
+    table.appendChild(group);
+
+    yOffset += 40;
   });
+}
+
+// Kör init direkt när sidan laddas
+init();
 
 ]]>
 </script>
-
 </svg>
